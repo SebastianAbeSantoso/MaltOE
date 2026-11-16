@@ -47,6 +47,40 @@ These need your decision at the checkpoint (section 9). I have not edited `requi
 | Yao et al. ([arXiv 2011.01112](https://arxiv.org/abs/2011.01112)) | Real-time scheduling of deep learning services as imprecise computations: mandatory part plus optional parts, "depth assignment and stage scheduling", on machine vision. | Not LLMs, not MoE. | abstract and section headings |
 | llama.cpp MoE cache | Engine-level VRAM cache of host-resident experts, frequency-and-recency policy, fixed size chosen at context creation. | No width, no runtime resize, no controller. | verified in source |
 
+### 3.2b GitHub landscape (added 2026-11-16)
+
+The first G0 pass searched papers and a few named systems. A GitHub search afterwards found a crowded field of open-source projects that run MoE models larger than VRAM on consumer machines. Star counts are from the GitHub API on 2026-11-16. "Read" means I fetched the README and searched it for width, precision, top-k, budget, quality and live-pressure language, not that I read every line or ran the code.
+
+| Project | What it does (per its README) | Overlap with Molt |
+| --- | --- | --- |
+| [JustVugg/colibri](https://github.com/JustVugg/colibri) (Apache-2.0, 51.5k stars) | Hierarchical engine for frontier MoE models: hot experts on the GPU (CUDA, Vulkan), warm in RAM, cold on SSD. A hardware-aware planner detects RAM and VRAM budgets at setup and picks a build. Lossless or "quality-bounded" formats. | **Residency tiers and hardware detection.** No width control found. |
+| [wici-ai/inferssd](https://github.com/wici-ai/inferssd) (Apache-2.0, 1.2k) | llama.cpp plus SSD expert streaming, browser chat, OpenAI-compatible API. | Residency. |
+| [yalun753/moe-l2](https://github.com/yalun753/moe-l2) (Apache-2.0, 147) | Expert cache for low-VRAM cards (8 GB class). Changelog lists "soft_resize" and a "VRAM-adaptive main table top-k (12 GB or less = 75, more = 100)". The README does not say what those two mean (unverified). | Residency, possibly a live cache resize. |
+| [christ-pher/bnk](https://github.com/christ-pher/bnk) | Tiered experts on a V100 plus host RAM. Re-reads the driver's free VRAM whenever it hands out memory, so allocations made outside the cache "come back out of the expert cache". Lends a 256K context's memory to the expert cache until needed. | **Live shrinking of the expert cache under VRAM pressure**, residency only. |
+| [pmerolla/fomoe](https://github.com/pmerolla/fomoe) (MIT, 32) | Multi-tier caching with cache-aware routing: a cached expert is substituted for an uncached one. Reported for Qwen3.5-397B: 5.1 tok/s exact, 8.8 tok/s with moderate substitution, +3.5% perplexity (their numbers). A threshold chooses fidelity. | **Quality traded for speed under a memory limit**, on the expert-selection axis. |
+| [Niko1221/Strata](https://github.com/Niko1221/Strata) and forks ([eddoursul/Lamina](https://github.com/eddoursul/Lamina), Edge0's edge0-strata) | MoE offload engine. Its default skips low-ranked experts ("tail skip"), faster but approximate, with an exact mode. Lamina is a fork tuned for NVIDIA GPUs plus RAM. | Residency, and a static lossy knob (skip tail experts). |
+| [ewhacc/tandem.cpp](https://github.com/ewhacc/tandem.cpp) (78) | llama.cpp patch for MoE offload. `--fast` skips tail experts, approximate, quality "TODO". | Residency, static lossy knob. |
+| [neerajdad123-byte/moe](https://github.com/neerajdad123-byte/moe) (MIT, 9) | Qwen3.6-35B-A3B at about 68 to 78 tok/s on an RTX 4050 Laptop 6 GB (their numbers). Free VRAM becomes expert slots. `--fast` is slightly approximate. | **The "35B on a small GPU" demo already exists.** |
+| [LozzKappa/hotpin-llm](https://github.com/LozzKappa/hotpin-llm) (AGPL-3.0) | Routing-guided expert pinning, bit-identical to a full-RAM run. | Residency, lossless. |
+| giannisanni/pulsar, yairpatch/flyweight, AlphaChat-dotcom/alphallama, Kelsidavis/hydranet, IbrahimSiddiqui007/moe-cache | Expert streaming and caching engines. | Residency. |
+
+**What I did not find in any of them:** expert **width** (a prefix of importance-ordered neurons within an expert) as a runtime knob, mandatory and optional work scheduled by an objective, or width and residency adjusted together when the budget changes. That is the same conclusion as 3.3, now across more projects. The survey covers about 14 READMEs of many more, found by keyword. A project that uses other words could exist.
+
+**What the survey changes:**
+
+1. **Residency is not a contribution, and neither is live cache shrinking.** bnk and possibly moe-l2 do it. The README must not suggest otherwise.
+2. **Lossy knobs already exist on a different axis:** skipping tail experts (Strata, tandem.cpp) and substituting cached experts (fomoe). A width-reduced expert is only interesting if it gives a better quality-versus-compute-and-bytes curve than these. **They need to be baselines in the 2x2 envelope** (proposed, not applied): Strata's tail-skip or tandem's `--fast` at matched compute.
+3. **Demo beat 1 is weaker than the handoff assumed.** A 35B model on a 6 GB laptop GPU at chat speed is already published by others, and stock `llama.cpp --n-cpu-moe` is far from "crawls below 1 tok/s". The comparison must be against `--n-cpu-moe` plus `--moe-cache-mib`, not a naive load. Beat 2 (the live squeeze with a controlled quality trade) is the real differentiator.
+
+### 3.2c Name checks (2026-11-16)
+
+| Name | Finding |
+| --- | --- |
+| Molt | NVIDIA's NeMo team released an agentic-RL training framework called Molt on 2026-07-22 (section 2, finding 5). |
+| Lamina | [eddoursul/Lamina](https://github.com/eddoursul/Lamina): a fork of Strata that runs MoE models across NVIDIA GPUs and RAM. Also a 2024 paper, [arXiv 2405.01814](https://arxiv.org/abs/2405.01814), on attention offloading. **Taken, and in the same field.** |
+| Instar | [instar.sh](https://instar.sh/): an AI-agent framework ("Claude Code, with a mind of its own"). **Taken.** |
+| Ecdysis | [cuiyu-ai/Ecdysis](https://github.com/cuiyu-ai/Ecdysis): "Efficient and Effective Training of Runtime Harnesses for LLM Agents" (14 stars). **Taken in AI.** |
+
 ### 3.3 Verdict
 
 I did not find work that changes expert width and expert residency together, during a live session, when the VRAM budget changes, steered by a user objective. **The narrowed claim in `product.md` and the README stands unchanged.** Residual risks: the CRISP source is unreleased, I did not read every CRISP paragraph, and I could not check WiSP's behaviour under an external VRAM change.
