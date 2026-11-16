@@ -12,7 +12,7 @@
 
 - [ ] P1. Request the Kiroween Kiro credits before December 1, 2026, 12:00 PM PT (December 2, 04:00 WITA). _Requirements: 15.5_
 - [ ] P2. Make the GitHub repo `SebastianAbeSantoso/Molt` public, or confirm it will be public before submission. Confirm `.kiro/` is committed and not in `.gitignore`. _Requirements: 15.1_
-- [ ] P3. Re-check the official Kiroween 2026 rules on Devpost. Record any difference from the handoff dates in `docs/kiroween-rules.md`. _Requirements: 15.4, 15.6_
+- [~] P3. Re-check the official Kiroween 2026 rules on Devpost. Record any difference from the handoff dates in `docs/kiroween-rules.md`. _Requirements: 15.4, 15.6_ (partly done: dates match, but Devpost blocks automated reads, so the builder must confirm the items listed in `docs/kiroween-rules.md` in a browser)
 
 ## Tasks
 
