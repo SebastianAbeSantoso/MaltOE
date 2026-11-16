@@ -38,6 +38,16 @@ Install once: Visual Studio 2022 Build Tools with the C++ workload, CMake, Ninja
 
 The "CUDA Version" in `nvidia-smi` is what your *driver* supports, not an installed toolkit. Check what is installed with `nvcc --version` (in the x64 Native Tools prompt). If it is not found, install a toolkit from NVIDIA. In the installer choose **Custom** and untick the display driver if it is offered, so that it does not replace your current driver; every measurement should run on one driver version.
 
+**Host compiler.** CUDA 12.9 supports Visual Studio 2022 17.x (the MSVC v143 toolset, for example 14.44) and 2019, and nothing newer ([NVIDIA's table](https://docs.nvidia.com/cuda/archive/12.9.1/cuda-installation-guide-microsoft-windows/index.html)). The Visual Studio 2026 toolset (v145) is not supported, so install "MSVC v143 - VS 2022 C++ x64/x86 build tools" and remove the v145 one, or force the old one with `vcvarsall.bat x64 -vcvars_ver=14.44`. Do not use `-allow-unsupported-compiler`. Before the long build, check the pairing in the prompt you will build in:
+
+```powershell
+cl                       # expect a compiler version starting with 19.44
+nvcc --version
+"__global__ void k(){} int main(){k<<<1,1>>>(); return cudaDeviceSynchronize();}" | Out-File -Encoding ascii hello.cu
+nvcc hello.cu -o hello.exe
+.\hello.exe; echo "exit code: $LASTEXITCODE"      # 0 means toolkit, compiler and driver work together
+```
+
 The pinned commit is `a946eb541a6d3051496bdcc451a0fa85772b8dfd` (2026-11-16). The spike scripts were checked against its source.
 
 ```powershell
