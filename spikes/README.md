@@ -38,7 +38,17 @@ Install once: Visual Studio 2022 Build Tools with the C++ workload, CMake, Ninja
 
 The "CUDA Version" in `nvidia-smi` is what your *driver* supports, not an installed toolkit. Check what is installed with `nvcc --version` (in the x64 Native Tools prompt). If it is not found, install a toolkit from NVIDIA. In the installer choose **Custom** and untick the display driver if it is offered, so that it does not replace your current driver; every measurement should run on one driver version.
 
-**Host compiler.** CUDA 12.9 supports Visual Studio 2022 17.x (the MSVC v143 toolset, for example 14.44) and 2019, and nothing newer ([NVIDIA's table](https://docs.nvidia.com/cuda/archive/12.9.1/cuda-installation-guide-microsoft-windows/index.html)). The Visual Studio 2026 toolset (v145) is not supported, so install "MSVC v143 - VS 2022 C++ x64/x86 build tools" and remove the v145 one, or force the old one with `vcvarsall.bat x64 -vcvars_ver=14.44`. Do not use `-allow-unsupported-compiler`. Before the long build, check the pairing in the prompt you will build in:
+**Host compiler (important).** CUDA 12.9 accepts MSVC compilers whose `_MSC_VER` is 1930 to 1939 (NVIDIA's "MSVC Version 193x" row). The compiler reports that number as `cl` version 19.3x. The newest v143 toolset reports 19.44, which is outside that range, so CUDA 12.9 refuses it. You do not need to uninstall anything. Install an older v143 toolset next to the new one:
+
+1. Open **Visual Studio Installer** > **Modify** on your VS 2022 Build Tools.
+2. Go to **Individual components** and search for `14.39` (or `v143 ... 17.9`). Tick **MSVC v143 - VS 2022 C++ x64/x86 build tools (v14.39)** and install.
+3. Open the **x64 Native Tools Command Prompt for VS 2022** and select that toolset for the session:
+
+```powershell
+vcvars64.bat -vcvars_ver=14.39
+```
+
+Do not use `-allow-unsupported-compiler`. Before the long build, check the pairing in that same prompt:
 
 ```powershell
 cl                       # expect a compiler version starting with 19.44
