@@ -10,7 +10,7 @@ A laptop on battery runs both its CPU and GPU at lower power, so a run on batter
 
 1. Plug in the charger, and use the charger that came with the laptop.
 2. Set the Windows power mode to **Best performance** (Settings > System > Power & battery), and keep the same mode for every run. Use the laptop vendor's performance profile too if it has one.
-3. Run `nvidia-smi` and note the power limit (`Pwr:Usage/Cap`). Your first reading, 45 W, was taken on battery. Plugged in it should be higher. Paste the plugged-in reading back with the other output.
+3. Run `nvidia-smi` and note the power limit (`Pwr:Usage/Cap`). Your readings so far: 45 W on battery, 140 W plugged in. Use the plugged-in state for every run and paste a fresh `nvidia-smi` back with the other output.
 4. Leave other GPU programs closed.
 
 `python -m harness.manifest` records whether the laptop is on battery and the GPU power limit, and warns when either lowers performance. The scripts in this folder do not check this for you, so do it by hand.
