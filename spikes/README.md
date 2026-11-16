@@ -36,6 +36,8 @@ Install once: Visual Studio 2022 Build Tools with the C++ workload, CMake, Ninja
 
 **Which CUDA Toolkit:** 12.4 or newer, 12.9 and 13.x included. llama.cpp's own Windows release builds use 12.4 and 13.5, and its CMake has code paths for 12.8, 12.9 and 13. The RTX 4060 (Ada, architecture 89) works with all of them, and nothing in llama.cpp's CUDA backend at the pinned commit uses a feature that only a newer toolkit offers on this card. The safe choice is a toolkit no newer than the "CUDA Version" in the top-right of the `nvidia-smi` output (the newest runtime your driver was built for). NVIDIA's compatibility rules also let a build from the same major release (13.x) run on any driver 580 or newer, with a limited feature set, so a slightly newer 13.x probably works, but that is the less tested path. The laptop's driver 610.62 reports CUDA 13.3, so 12.9 and 13.0 to 13.3 are all fine. Kiro has not built with any of them on Windows, so the first build is the test.
 
+The "CUDA Version" in `nvidia-smi` is what your *driver* supports, not an installed toolkit. Check what is installed with `nvcc --version` (in the x64 Native Tools prompt). If it is not found, install a toolkit from NVIDIA. In the installer choose **Custom** and untick the display driver if it is offered, so that it does not replace your current driver; every measurement should run on one driver version.
+
 The pinned commit is `a946eb541a6d3051496bdcc451a0fa85772b8dfd` (2026-11-16). The spike scripts were checked against its source.
 
 ```powershell
