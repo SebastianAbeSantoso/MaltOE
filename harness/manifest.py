@@ -8,6 +8,9 @@ ignores what the OS already uses is misleading. So every run stores:
     total RAM and RAM available after OS overhead, SSD model and interface, OS version,
     and the engine version.
 
+Whether a laptop is on battery is recorded too, with a warning when it is: on battery the CPU and GPU
+power limits drop, so such a run is not comparable with a plugged-in one.
+
 Anything that cannot be read is left out of its field and listed under "unavailable" with the
 reason, so a missing value is visible instead of silently absent.
 
@@ -119,6 +122,34 @@ def ram_info() -> dict:
     return {"total_bytes": int(vm.total), "available_bytes": int(vm.available)}
 
 
+def battery_info() -> dict | None:
+    """None on a machine without a battery (a desktop)."""
+    try:
+        b = psutil.sensors_battery()
+    except (AttributeError, OSError):
+        return None
+    if b is None:
+        return None
+    return {"percent": round(b.percent), "plugged_in": b.power_plugged}
+
+
+def power_warnings(gpus: list[dict], battery: dict | None) -> list[str]:
+    """Conditions under which a laptop runs slower than its plugged-in self. A result recorded
+    under any of them is not comparable with one recorded without them."""
+    out = []
+    if battery is not None and battery["plugged_in"] is not True:
+        out.append(
+            "running on battery (or AC state unknown): laptops lower CPU and GPU power limits on battery"
+        )
+    for g in gpus:
+        lim, default = g.get("power_limit_w"), g.get("power_default_limit_w")
+        if lim is not None and default is not None and lim < default:
+            out.append(
+                f"GPU power limit {lim:g} W is below its default {default:g} W ({g['name']})"
+            )
+    return out
+
+
 def _cpu_model(system: str, run: Runner) -> str | None:
     if system == "Windows":
         out = run(powershell("(Get-CimInstance Win32_Processor | Select-Object -First 1).Name"))
@@ -138,6 +169,7 @@ def collect_manifest(
     model_path: str | Path | None = None,
     run: Runner = run_command,
     ram_fn: Callable[[], dict] = ram_info,
+    battery_fn: Callable[[], dict | None] = battery_info,
     system: str | None = None,
     now: datetime | None = None,
     repo_root: Path = REPO_ROOT,
@@ -173,6 +205,7 @@ def collect_manifest(
         power_mode = parse_power_scheme(out) if out else None
     need("cpu.power_mode", power_mode, "only read on Windows through powercfg")
     cpu["power_mode"] = power_mode
+    battery = battery_fn()
 
     # Storage (the drive that holds the model package)
     path = str(ssd_path) if ssd_path is not None else None
@@ -225,6 +258,8 @@ def collect_manifest(
         "cpu": cpu,
         # "available" is what the OS reports as usable right now, after its own overhead
         "ram": ram_fn(),
+        "battery": battery,  # None on a desktop
+        "warnings": power_warnings(gpus, battery),
         "storage": {"path": path, "free_bytes": free_bytes, "device": disk},
         "engine": {"version": engine_version, "llama_cpp_commit": engine_commit},
         "model": model,

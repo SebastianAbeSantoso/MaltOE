@@ -4,6 +4,17 @@ These are the steps of the Model Feasibility Round that need a GPU. Kiro wrote a
 
 Nothing here is part of the product. Spike code is not imported by production code (see `structure.md`).
 
+## Before every run: power settings
+
+A laptop on battery runs both its CPU and GPU at lower power, so a run on battery is slower and not comparable with one plugged in. Before any step below:
+
+1. Plug in the charger, and use the charger that came with the laptop.
+2. Set the Windows power mode to **Best performance** (Settings > System > Power & battery), and keep the same mode for every run. Use the laptop vendor's performance profile too if it has one.
+3. Run `nvidia-smi` and note the power limit (`Pwr:Usage/Cap`). Your first reading, 45 W, was taken on battery. Plugged in it should be higher. Paste the plugged-in reading back with the other output.
+4. Leave other GPU programs closed.
+
+`python -m harness.manifest` records whether the laptop is on battery and the GPU power limit, and warns when either lowers performance. The scripts in this folder do not check this for you, so do it by hand.
+
 ## Run these in order
 
 The first three are short and answer the engine and budget gates. Start the long one (G3) afterwards, ideally overnight.
