@@ -282,4 +282,6 @@ Proposed changes for your approval (none applied yet):
 
 **To discuss with the builder (not yet decided): demo impact.** A 30B-class MoE running on a cheap consumer GPU is already shown by others (section 3.2b; for example Qwen3.6-35B-A3B at 68 to 78 tok/s on a 6 GB laptop GPU, per that project's README), and stock `llama.cpp --n-cpu-moe` does not "crawl below 1 tok/s". Demo beat 1 as written in the handoff will not surprise a judge who knows the field. The live squeeze with a controlled quality trade (beat 2) is the part nobody else shows. Whatever replaces beat 1 should be chosen after the Step B and Step D numbers exist, so it rests on measured results.
 
+Candidate from the builder (2026-11-16): open with the asterisk. "An 8 GB GPU can run DeepSeek V4.1*", then reveal the footnote ("* at a uselessly low tokens per second"), then "well, I won't claim that", and turn to what MaltOE does claim. It makes the honesty rules part of the pitch. Conditions: the footnote number must be a real measurement from Task 15.2 on the test laptop, or the slide must say plainly that it is a joke figure. V4.1 needs hundreds of GB of disk, and none of the handoff's V4.1 figures are verified yet.
+
 Open items: the CRISP source code (not released), WiSP's behaviour under an external VRAM change (unverified), and whether the pinned commit builds on Windows with CUDA.
