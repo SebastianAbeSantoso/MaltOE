@@ -1,0 +1,117 @@
+{
+  "name": "gsm8k-test-20",
+  "source": {
+    "url": "https://raw.githubusercontent.com/openai/grade-school-math/master/grade_school_math/data/test.jsonl",
+    "sha256": "3730d312f6e3440559ace48831e51066acaca737f6eabec99bccb9e4b3c39d14",
+    "licence": "MIT",
+    "credit": "OpenAI GSM8K, https://github.com/openai/grade-school-math"
+  },
+  "draw": {
+    "seed": 20261116,
+    "salt": "gsm8k",
+    "size": 20,
+    "population": 1319
+  },
+  "problems": [
+    {
+      "index": 22,
+      "id": "gsm8k-test-22",
+      "sha256": "26639db3981c76343fa9ab0693d6a491a48a38abce7695a12b0406e0ea831180"
+    },
+    {
+      "index": 194,
+      "id": "gsm8k-test-194",
+      "sha256": "39dc625c7a0cb25a4c2e0e42859677e1b3a10cba799bd6a3584ce32da6ecfbc5"
+    },
+    {
+      "index": 197,
+      "id": "gsm8k-test-197",
+      "sha256": "76648409e572b4a7432145bf7184e0d3d82bd6ac1c24f2332628c3e50f4f9229"
+    },
+    {
+      "index": 809,
+      "id": "gsm8k-test-809",
+      "sha256": "a356aa4329881f4d035f866bb2f5d03cc0d8d24fc058584d20bc192a92fc4182"
+    },
+    {
+      "index": 760,
+      "id": "gsm8k-test-760",
+      "sha256": "66a8214592727fb4e1bbda4e4c59d9ac66e94eaa7c5ae456e3c1fd82ef3f7c98"
+    },
+    {
+      "index": 34,
+      "id": "gsm8k-test-34",
+      "sha256": "0b21d535a5ee93a7ac96fca26dce13f7df05509b17818cb92d842aa4d16ed840"
+    },
+    {
+      "index": 903,
+      "id": "gsm8k-test-903",
+      "sha256": "e3311a54f8a37ad78d75b2e2213d7db780b13a9559a3e9c3d05a1e7b46921f71"
+    },
+    {
+      "index": 26,
+      "id": "gsm8k-test-26",
+      "sha256": "4d692efb4be1032074d11d1aeea9bb27063cc1c58a04cd8566f1e143119ea829"
+    },
+    {
+      "index": 692,
+      "id": "gsm8k-test-692",
+      "sha256": "c5b3f48526e6a5689360eecb6aa033fdaa801eec5cee52df58f712819cea9dee"
+    },
+    {
+      "index": 209,
+      "id": "gsm8k-test-209",
+      "sha256": "a90f0e649930da605d0da1ab9a427dfa77c183bc61df5b2cb8991fa56c468bbf"
+    },
+    {
+      "index": 446,
+      "id": "gsm8k-test-446",
+      "sha256": "62ed1c00084e0464f40ad1b9550645a3bf54d1f8d674f33228771ccceda46cb9"
+    },
+    {
+      "index": 1018,
+      "id": "gsm8k-test-1018",
+      "sha256": "ff4f08653a3dd62d61a5494e219bc3439b9e6b265a240a57f8a5e9bcadda0e69"
+    },
+    {
+      "index": 574,
+      "id": "gsm8k-test-574",
+      "sha256": "b7ac97d792f20ccaa8daa4c23e2c615855869b7ea97f432d6ee027cba7d68db3"
+    },
+    {
+      "index": 557,
+      "id": "gsm8k-test-557",
+      "sha256": "f1de7ff9233846c80bef9c33ff41039c6e22522e8289d25a128ee299408f198d"
+    },
+    {
+      "index": 1212,
+      "id": "gsm8k-test-1212",
+      "sha256": "0fb3f93db0e21fbf53dbd922de869013de05ea71abf80bd1206965607894df0f"
+    },
+    {
+      "index": 176,
+      "id": "gsm8k-test-176",
+      "sha256": "4173f972835d62961d970a08a1802a55d57af3d0dad212044541c16367fbcae7"
+    },
+    {
+      "index": 1114,
+      "id": "gsm8k-test-1114",
+      "sha256": "4806d02de8a437b1771006f808275b97b9255f2e0142eb6c3d75ed6aa16e6a96"
+    },
+    {
+      "index": 795,
+      "id": "gsm8k-test-795",
+      "sha256": "87e289a1832a7482678cba9eb87a9a6bffb5d259dd6bacd418256948e6b361e1"
+    },
+    {
+      "index": 200,
+      "id": "gsm8k-test-200",
+      "sha256": "7e43b6ea4165dba3bb50023934cafa0051bb8e81ea835e193f80faba22f3e074"
+    },
+    {
+      "index": 129,
+      "id": "gsm8k-test-129",
+      "sha256": "53acc4beedab5be960203d8ff4a2e9f1b587d781f204fef314e168dd7c644d27"
+    }
+  ]
+}

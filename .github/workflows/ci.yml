@@ -19,7 +19,10 @@ jobs:
       - run: uv sync
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+      # Also downloads the public evaluation datasets and checks them against the frozen hashes.
       - run: uv run pytest -q
+        env:
+          MOLT_TEST_NETWORK: "1"
 
   web:
     runs-on: ubuntu-latest

@@ -42,3 +42,6 @@ extend-exclude = [
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+# Line length is owned by `ruff format`; it cannot split long strings, and a failing E501 on one
+# would only push people to make the text worse.
+ignore = ["E501"]

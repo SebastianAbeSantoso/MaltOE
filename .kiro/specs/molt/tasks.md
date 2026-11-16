@@ -94,12 +94,12 @@
   - [x] 2.5 Add GitHub Actions CI: ruff and pytest; a CPU-only engine build and CTest; web lint and vitest.
   - _Requirements: 15.1_
 
-- [ ] 3. Fixed evaluation set and machine manifest
-  - [ ] 3.1 Freeze the eval set: 20 HumanEval ids and 20 GSM8K test ids from a seeded draw, plus 64 windows of 512 tokens from the wikitext-2 test split. Store them in `harness/evalset/` with source links and licences.
-  - [ ] 3.2 Write the scorers: sandboxed HumanEval execution with a timeout (pass@1), GSM8K final-number exact match, and the perplexity driver. Report solved counts (n/20), not only percentages.
-  - [ ] 3.3 Fix the sampling settings: greedy, fixed `max_tokens`, fixed seed, Qwen3 chat template with thinking off. Store them in `harness/evalset/sampling.json`.
-  - [ ] 3.4 Write the machine manifest collector: GPU name and power limit, CPU model and threads, power mode, total and available RAM, SSD model and interface, OS and driver versions, engine version.
-  - [ ] 3.5 Unit tests for the scorers on fixed sample outputs.
+- [x] 3. Fixed evaluation set and machine manifest
+  - [x] 3.1 Freeze the eval set: 20 HumanEval ids and 20 GSM8K test ids from a seeded draw, plus 64 windows of 512 tokens from the wikitext-2 test split. Store them in `harness/evalset/` with source links and licences.
+  - [x] 3.2 Write the scorers: sandboxed HumanEval execution with a timeout (pass@1), GSM8K final-number exact match, and the perplexity driver. Report solved counts (n/20), not only percentages.
+  - [x] 3.3 Fix the sampling settings: greedy, fixed `max_tokens`, fixed seed, Qwen3 chat template with thinking off. Store them in `harness/evalset/sampling.json`.
+  - [x] 3.4 Write the machine manifest collector: GPU name and power limit, CPU model and threads, power mode, total and available RAM, SSD model and interface, OS and driver versions, engine version.
+  - [x] 3.5 Unit tests for the scorers on fixed sample outputs.
   - _Requirements: 2.3, 2.7, 10.4, 10.7_
 
 - [ ] 4. Baselines [HW-L, then HW-PC for BL-2 and BL-3 only]
