@@ -51,7 +51,7 @@ vcvars64.bat -vcvars_ver=14.39
 Do not use `-allow-unsupported-compiler`. Before the long build, check the pairing in that same prompt:
 
 ```powershell
-cl                       # expect a compiler version starting with 19.44
+cl                       # expect a compiler version starting with 19.39 (not 19.44)
 nvcc --version
 "__global__ void k(){} int main(){k<<<1,1>>>(); return cudaDeviceSynchronize();}" | Out-File -Encoding ascii hello.cu
 nvcc hello.cu -o hello.exe
