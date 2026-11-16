@@ -102,7 +102,16 @@ $env:PATH = "$PWD\build\bin;" + $env:PATH     # needed so Windows finds ggml*.dl
 
 Timing now warms the GPU for 1.5 s and reports the median of 7 rounds with the spread. `--rounds` and `--warmup-ms` change that. If the spread is above 25% the program says so.
 
-This builds one Qwen3-30B-A3B MoE layer (2048 x 768, 128 experts, top-8). It checks that three chunks summed equal the fused expert, that width k equals a plain f32 reference using the first k chunks, and times fused against chunked k = 1..3. The last command tries four chunks (192 neurons each), which only works with 32-element block types such as q8_0.
+This builds one Qwen3-30B-A3B MoE layer (2048 x 768, 128 experts, top-8). It checks that three chunks summed equal the fused expert, that width k equals a plain f32 reference using the first k chunks, and times fused against chunked k = 1..3. To test whether the chunking price can be avoided (width k as a prefix view of the one fused tensor, no chunk loop), add `--views` to the first two commands:
+
+```powershell
+.\build\chunked_moe.exe --backend CUDA0 --type q4_K --n-expert 128 --n-used 8 --n-tokens 1   --iters 200 --views
+.\build\chunked_moe.exe --backend CUDA0 --type q4_K --n-expert 128 --n-used 8 --n-tokens 512 --iters 20  --views
+```
+
+If the CUDA backend rejects a view, the program stops with an assertion message. Paste it back; that is a result too.
+
+The last command tries four chunks (192 neurons each), which only works with 32-element block types such as q8_0.
 
 Paste back: all three outputs in full.
 

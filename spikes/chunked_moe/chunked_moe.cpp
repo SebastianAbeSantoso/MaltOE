@@ -45,6 +45,7 @@ struct options {
     int     warmup_ms = 1500; // run the GPU flat out this long before measuring (clock ramp-up)
     uint32_t seed    = 1234;
     bool    list_devices = false;
+    bool    views = false;   // also test width k as a prefix VIEW of the fused tensors (no chunk loop)
 };
 
 static ggml_type parse_type(const std::string & s) {
@@ -76,6 +77,7 @@ static bool parse_args(int argc, char ** argv, options & o) {
         else if (a == "--warmup-ms") o.warmup_ms = atoi(next("--warmup-ms"));
         else if (a == "--seed")     o.seed      = (uint32_t) atoll(next("--seed"));
         else if (a == "--list-devices") o.list_devices = true;
+        else if (a == "--views")    o.views = true;
         else { fprintf(stderr, "unknown argument %s\n", a.c_str()); return false; }
     }
     return true;
@@ -343,7 +345,7 @@ int main(int argc, char ** argv) {
     }
 
     // ----- device tensors -----
-    const size_t n_w = 3 + 3 * C + 2;
+    const size_t n_w = 3 + 3 * C + 2 + 3 * C; // fused, chunks, inputs, prefix views
     std::vector<uint8_t> wbuf(ggml_tensor_overhead() * (n_w + 8));
     ggml_init_params wp = { wbuf.size(), wbuf.data(), true };
     ggml_context * wctx = ggml_init(wp);
@@ -357,6 +359,19 @@ int main(int argc, char ** argv) {
         chunks[j].gate = ggml_new_tensor_3d(wctx, type, o.n_embd, S,        o.n_expert);
         chunks[j].up   = ggml_new_tensor_3d(wctx, type, o.n_embd, S,        o.n_expert);
         chunks[j].down = ggml_new_tensor_3d(wctx, type, S,        o.n_embd, o.n_expert);
+    }
+    // Prefix views: width k as the first k*S neurons of the ONE fused tensor, with the fused strides.
+    // For gate and up, neuron i is row i, so a prefix is a shorter run of rows per expert. For down, neuron i
+    // is column i, so a prefix is the first k*S entries of every row (a shorter row, the same row stride).
+    // This is the layout CRISP describes ("a width-k execution simply accesses the first k neurons"). It needs
+    // no chunk loop: same kernels, same count, only smaller shapes. Whether a backend accepts such a view is
+    // exactly what --views tests.
+    std::vector<expert_tensors> views(C);
+    for (int j = 0; j < C; ++j) {
+        const int64_t w = (int64_t) (j + 1) * S;
+        views[j].gate = ggml_view_3d(wctx, fused.gate, o.n_embd, w, o.n_expert, fused.gate->nb[1], fused.gate->nb[2], 0);
+        views[j].up   = ggml_view_3d(wctx, fused.up,   o.n_embd, w, o.n_expert, fused.up->nb[1],   fused.up->nb[2],   0);
+        views[j].down = ggml_view_3d(wctx, fused.down, w, o.n_embd, o.n_expert, fused.down->nb[1], fused.down->nb[2], 0);
     }
     ggml_tensor * tx   = ggml_new_tensor_3d(wctx, GGML_TYPE_F32, o.n_embd, 1, o.n_tokens);
     ggml_tensor * tids = ggml_new_tensor_2d(wctx, GGML_TYPE_I32, o.n_used, o.n_tokens);
@@ -383,6 +398,14 @@ int main(int argc, char ** argv) {
     std::vector<graph_pack> gk;
     gk.reserve(C);
     for (int k = 1; k <= C; ++k) { gk.push_back(make_graph(backend, chunks, k, tx, tids)); }
+    std::vector<graph_pack> gv;
+    if (o.views) {
+        gv.reserve(C);
+        for (int k = 1; k <= C; ++k) {
+            std::vector<expert_tensors> one = { views[k - 1] };
+            gv.push_back(make_graph(backend, one, 1, tx, tids));
+        }
+    }
 
     auto run = [&](graph_pack & g, std::vector<float> & result) {
         ggml_backend_graph_compute(backend, g.graph);
@@ -423,6 +446,22 @@ int main(int argc, char ** argv) {
         ok = ok && pass;
     }
 
+    if (o.views) {
+        printf("  prefix views of the fused tensor (no chunk loop):\n");
+        for (int k = 1; k <= C; ++k) {
+            std::vector<float> out_v, ref_v, out_c;
+            run(gv[k - 1], out_v);
+            run(gk[k - 1], out_c);
+            reference_prefix(o, gate_ref, up_ref, down_ref, x, ids, (int64_t) k * S, ref_v);
+            const diff_stats vs_ref = compare(out_v, ref_v);
+            const diff_stats vs_chunked = compare(out_v, out_c);
+            const bool pass = vs_ref.rel_rms <= tol_vs_reference && vs_chunked.rel_rms <= tol_chunk_vs_fused;
+            printf("  view k=%d (%3d%% width): vs f32 prefix reference %.3e | vs chunked %.3e  %s\n",
+                   k, (int) (100.0 * k / C), vs_ref.rel_rms, vs_chunked.rel_rms, pass ? "PASS" : "FAIL");
+            ok = ok && pass;
+        }
+    }
+
     // a narrower width must actually change the result, otherwise the test proves nothing
     {
         std::vector<float> a, b;
@@ -443,6 +482,7 @@ int main(int argc, char ** argv) {
            o.rounds, o.iters, o.warmup_ms);
     std::vector<graph_pack *> variants = { &gf };
     for (auto & g : gk) { variants.push_back(&g); }
+    for (auto & g : gv) { variants.push_back(&g); }
     std::vector<timing> times(variants.size());
     for (auto * v : variants) { warm_up(backend, v->graph, o.warmup_ms / (int) variants.size()); }
     warm_up(backend, gf.graph, o.warmup_ms);
@@ -462,6 +502,13 @@ int main(int argc, char ** argv) {
                k, (int) (100.0 * k / C), t.median(), t.lo(), t.hi(), t.spread_pct(), t.median() / t_fused);
         noisy = noisy || t.spread_pct() > 25.0;
     }
+    for (size_t i = 0; i < gv.size(); ++i) {
+        const int k = (int) i + 1;
+        const timing & t = times[1 + C + i];
+        printf("  prefix view k=%d (%3d%% width): %8.4f ms   (min %.4f, max %.4f, spread %.0f%%)   %.2fx of fused\n",
+               k, (int) (100.0 * k / C), t.median(), t.lo(), t.hi(), t.spread_pct(), t.median() / t_fused);
+        noisy = noisy || t.spread_pct() > 25.0;
+    }
     if (noisy) {
         printf("  NOTE: spread above 25%%. Plug in the laptop, close other GPU programs, and run again; treat these numbers as rough.\n");
     }
@@ -469,6 +516,7 @@ int main(int argc, char ** argv) {
 
     free_graph(gf);
     for (auto & g : gk) { free_graph(g); }
+    for (auto & g : gv) { free_graph(g); }
     ggml_backend_buffer_free(wbuffer);
     ggml_free(wctx);
     ggml_backend_free(backend);

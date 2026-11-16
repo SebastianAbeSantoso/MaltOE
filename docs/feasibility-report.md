@@ -169,6 +169,24 @@ The first run's prefill figure for the fused variant (9.6 ms) was an artifact of
 - **Configuration A in the 2x2.** "Full" must say whether it is the stock fused expert or the chunked layout at k = C. They differ by the price above. Comparing Molt's chunked full width against stock llama.cpp charges Molt for the chunking; comparing against chunked full width isolates the controller. The report should show both.
 - **Reducing the price** (none attempted): merge gate and up into one tensor per chunk (llama.cpp already has a merged `gate_up` path), quantize the input once per layer, or add one op that handles k chunks in a single launch.
 
+### 6.6b Avoiding the chunk price: prefix views (CPU result; CUDA pending)
+
+The price in 6.6a comes from running one expert as several smaller ones. CRISP does not do that: it stores each expert once, reordered by importance, so that "a width-k execution simply accesses the first k neurons" (CRISP, section on neuron reordering). In ggml terms a width-k expert is a *view* of the one fused tensor: for gate and up, the first k x 256 rows of each expert; for down, the first k x 256 entries of every row, with the original row stride. That is one matmul per projection at every width, the same kernel count as the stock expert, only smaller shapes. design.md ruled this out because "kernels do not support truncated quantized rows in general"; that was an untested assumption.
+
+`spikes/chunked_moe --views` tests it. Sandbox CPU result (32 experts, top-8, 1 token): the views give the same numbers as the chunked layout (difference 0 to 2.4e-7, all PASS) for f32, q8_0, and q4_K, and under AddressSanitizer. Timing on that CPU, as multiples of the fused expert:
+
+| q4_K, CPU, decode | k = 1 | k = 2 | k = 3 |
+| --- | ---: | ---: | ---: |
+| chunked | 0.44x | 0.88x | 1.32x |
+| prefix view | 0.48x | 0.78x | 1.04x |
+
+So on CPU the price at full width disappears (1.04x, within noise of the 1.00x it should be) and narrower widths still cost proportionally less. **This says nothing about CUDA yet.** The CUDA kernels may reject or mishandle a view whose row stride differs from its row size; `--views` on the laptop answers that, and a rejection would be an assertion message to paste back.
+
+Two limits that stay even if CUDA accepts it:
+
+- **Paging.** For down, a width-k prefix is a piece of every row, not one contiguous block. Copying a width-k slice over PCIe as 2,048 short pieces would be slow. A layout that is contiguous for transfer (chunk-major, as in the package) and a layout that is a prefix view for compute (expert-major) are different. One way to reconcile them is to upload each chunk contiguously and scatter it into the expert-major slot on the GPU, which runs at VRAM speed. That is a design idea, not tested.
+- **Quality is a separate question.** Nothing here says a width-reduced Qwen3-30B-A3B stays useful. That is gate G3 (Step D).
+
 ### 6.5 Smallest engine change for Route A (Req 1.7)
 
 llama.cpp has dynamic residency (VRAM to host) but not variable-width execution, so the change is to add width on top and extend the cache:

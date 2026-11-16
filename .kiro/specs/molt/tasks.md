@@ -61,6 +61,7 @@
     - Record correctness and per-layer time per `k` against one fused `mul_mat_id` at full width.
     - _Requirements: 1.4, 1.7_
 
+  - [ ] 1.6b *(proposed, small)* Run `chunked_moe --views` on CUDA to see whether width k can be a prefix view of the fused tensor with no chunk loop (CPU: yes, no price at full width; report 6.6b).
   - [ ] 1.7 G2b Engine spike: per-MoE-layer host split for slot remapping [HW-L] (**changed from plan**: llama.cpp at the pin already has `--moe-cache-mib`, so Step B measures that instead of a hand-written split; see report section 6)
     - Extend the spike. After top-K, force a CPU op that reads the expert ids, remaps them to slot ids in a small slot pool, and copies one missing page per layer from pinned host memory. Run it for 48 layers.
     - Measure the per-token overhead of the 48 splits and syncs with no misses, and the cost per missed page, at k = 1..3.
