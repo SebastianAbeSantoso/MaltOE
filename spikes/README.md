@@ -21,7 +21,9 @@ Run every script from a PowerShell prompt (not `pwsh -File`), so that array argu
 
 ## Step 0: prerequisites and the pinned llama.cpp
 
-Install once: Visual Studio 2022 Build Tools with the C++ workload, CMake, Ninja, Git, the CUDA Toolkit (12.x), [uv](https://docs.astral.sh/uv/). Open the **x64 Native Tools Command Prompt for VS 2022**, then start `powershell` inside it.
+Install once: Visual Studio 2022 Build Tools with the C++ workload, CMake, Ninja, Git, the CUDA Toolkit, [uv](https://docs.astral.sh/uv/).
+
+**Which CUDA Toolkit:** 12.4 or newer, 12.9 and 13.x included. llama.cpp's own Windows release builds use 12.4 and 13.5, and its CMake has code paths for 12.8, 12.9 and 13. The RTX 4060 (Ada, architecture 89) works with all of them. The one hard rule is that the toolkit must not be newer than the "CUDA Version" in the top-right of the `nvidia-smi` output, because that is the newest runtime your driver can run. If you already installed one that satisfies this, keep it. Kiro has not built with any of them on Windows, so the first build is the test. Open the **x64 Native Tools Command Prompt for VS 2022**, then start `powershell` inside it.
 
 The pinned commit is `a946eb541a6d3051496bdcc451a0fa85772b8dfd` (2026-11-16). The spike scripts were checked against its source.
 
