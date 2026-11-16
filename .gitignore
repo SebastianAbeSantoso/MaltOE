@@ -5,6 +5,7 @@
 spikes/**/work/
 spikes/**/build/
 spikes/**/*-results/
+engine/.cache/
 build/
 build-*/
 _scratch/

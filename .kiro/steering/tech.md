@@ -29,7 +29,7 @@ uv run python -m molt.server             # start molt-core on 127.0.0.1
 cd web && npm ci && npm run lint && npx vitest --run
 python engine/build.py --backend cpu     # fetch llama.cpp at pinned commit, patch, build
 python engine/build.py --backend cuda    # on the Windows laptop
-ctest --test-dir engine/build -L molt
+ctest --test-dir engine/build/cpu -L molt
 ```
 
 Never run watch modes (`vitest` without `--run`, `npm run dev`) in the Kiro sandbox.

@@ -1,0 +1,44 @@
+[project]
+name = "molt"
+version = "0.1.0"
+description = "Hardware-adaptive local inference for Mixture-of-Experts models (codename ELASTIC)"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "pydantic>=2.8",
+    "psutil>=6.0",
+    "nvidia-ml-py>=12.560",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "hypothesis>=6.110",
+    "ruff>=0.6",
+    "httpx2>=2.16",
+]
+
+[tool.uv]
+# An application, not a library: run it from the repository root.
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [
+    "spikes",        # throwaway experiments, not imported by production code
+    "engine/.cache", # fetched llama.cpp checkout
+    "web",
+    "*.md",          # ruff formats Python code blocks in Markdown; the spec files are not code
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

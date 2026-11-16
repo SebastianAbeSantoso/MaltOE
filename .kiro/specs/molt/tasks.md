@@ -86,12 +86,12 @@
     - **Checkpoint:** the builder approves the route before Task 2.
     - _Requirements: 1.1, 1.5, 1.7_
 
-- [ ] 2. Repository scaffolding
-  - [ ] 2.1 Create the layout from `structure.md`: `molt/`, `engine/molt/`, `engine/patches/`, `engine/LLAMA_CPP_COMMIT`, `tools/ballast/`, `convert/`, `harness/`, `web/`, `tests/`, `docs/`.
-  - [ ] 2.2 Set up the Python project with `uv`, Python 3.12, FastAPI, pydantic, pytest, hypothesis, ruff, and `pyproject.toml` with the ruff and pytest config.
-  - [ ] 2.3 Add an engine build script that fetches llama.cpp at the pinned commit, applies `engine/patches/*.patch`, adds `engine/molt/` to the build, and builds with CUDA (Windows) or CPU (CI).
-  - [ ] 2.4 Set up the web app with Vite, React, TypeScript, vitest, and eslint. FastAPI serves the build output as static files.
-  - [ ] 2.5 Add GitHub Actions CI: ruff and pytest; a CPU-only engine build and CTest; web lint and vitest.
+- [x] 2. Repository scaffolding
+  - [x] 2.1 Create the layout from `structure.md`: `molt/`, `engine/molt/`, `engine/patches/`, `engine/LLAMA_CPP_COMMIT`, `tools/ballast/`, `convert/`, `harness/`, `web/`, `tests/`, `docs/`.
+  - [x] 2.2 Set up the Python project with `uv`, Python 3.12, FastAPI, pydantic, pytest, hypothesis, ruff, and `pyproject.toml` with the ruff and pytest config.
+  - [x] 2.3 Add an engine build script that fetches llama.cpp at the pinned commit, applies `engine/patches/*.patch`, adds `engine/molt/` to the build, and builds with CUDA (Windows) or CPU (CI). (done and verified by a real CPU build of the pinned commit. The step "adds `engine/molt/` to the build" is deferred to the first patch in Task 6: there is no C++ in `engine/molt/` yet to add.)
+  - [x] 2.4 Set up the web app with Vite, React, TypeScript, vitest, and eslint. FastAPI serves the build output as static files.
+  - [x] 2.5 Add GitHub Actions CI: ruff and pytest; a CPU-only engine build and CTest; web lint and vitest.
   - _Requirements: 15.1_
 
 - [ ] 3. Fixed evaluation set and machine manifest
