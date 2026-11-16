@@ -17,3 +17,8 @@ add_subdirectory("${LLAMA_CPP_DIR}/ggml" ggml)
 
 add_executable(chunked_moe chunked_moe.cpp)
 target_link_libraries(chunked_moe PRIVATE ggml)
+
+# The MSVC STL needs C++ exception semantics enabled; without this it warns (C4530) when std::vector is used.
+if (MSVC)
+    target_compile_options(chunked_moe PRIVATE /EHsc)
+endif()

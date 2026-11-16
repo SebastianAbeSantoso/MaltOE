@@ -4,6 +4,17 @@ These are the steps of the Model Feasibility Round that need a GPU. Kiro wrote a
 
 Nothing here is part of the product. Spike code is not imported by production code (see `structure.md`).
 
+## Before every run: power settings
+
+A laptop on battery runs both its CPU and GPU at lower power, so a run on battery is slower and not comparable with one plugged in. Before any step below:
+
+1. Plug in the charger, and use the charger that came with the laptop.
+2. Set the Windows power mode to **Best performance** (Settings > System > Power & battery), and keep the same mode for every run. Use the laptop vendor's performance profile too if it has one.
+3. Run `nvidia-smi` and note the power limit (`Pwr:Usage/Cap`). Your readings so far: 45 W on battery, 140 W plugged in. Use the plugged-in state for every run and paste a fresh `nvidia-smi` back with the other output.
+4. Leave other GPU programs closed.
+
+`python -m harness.manifest` records whether the laptop is on battery and the GPU power limit, and warns when either lowers performance. The scripts in this folder do not check this for you, so do it by hand.
+
 ## Run these in order
 
 The first three are short and answer the engine and budget gates. Start the long one (G3) afterwards, ideally overnight.
@@ -21,7 +32,31 @@ Run every script from a PowerShell prompt (not `pwsh -File`), so that array argu
 
 ## Step 0: prerequisites and the pinned llama.cpp
 
-Install once: Visual Studio 2022 Build Tools with the C++ workload, CMake, Ninja, Git, the CUDA Toolkit (12.x), [uv](https://docs.astral.sh/uv/). Open the **x64 Native Tools Command Prompt for VS 2022**, then start `powershell` inside it.
+Install once: Visual Studio 2022 Build Tools with the C++ workload, CMake, Ninja, Git, the CUDA Toolkit, [uv](https://docs.astral.sh/uv/).
+
+**Which CUDA Toolkit:** 12.4 or newer, 12.9 and 13.x included. llama.cpp's own Windows release builds use 12.4 and 13.5, and its CMake has code paths for 12.8, 12.9 and 13. The RTX 4060 (Ada, architecture 89) works with all of them, and nothing in llama.cpp's CUDA backend at the pinned commit uses a feature that only a newer toolkit offers on this card. The safe choice is a toolkit no newer than the "CUDA Version" in the top-right of the `nvidia-smi` output (the newest runtime your driver was built for). NVIDIA's compatibility rules also let a build from the same major release (13.x) run on any driver 580 or newer, with a limited feature set, so a slightly newer 13.x probably works, but that is the less tested path. The laptop's driver 610.62 reports CUDA 13.3, so 12.9 and 13.0 to 13.3 are all fine. Kiro has not built with any of them on Windows, so the first build is the test.
+
+The "CUDA Version" in `nvidia-smi` is what your *driver* supports, not an installed toolkit. Check what is installed with `nvcc --version` (in the x64 Native Tools prompt). If it is not found, install a toolkit from NVIDIA. In the installer choose **Custom** and untick the display driver if it is offered, so that it does not replace your current driver; every measurement should run on one driver version.
+
+**Host compiler (important).** CUDA 12.9 accepts MSVC compilers whose `_MSC_VER` is 1930 to 1939 (NVIDIA's "MSVC Version 193x" row). The compiler reports that number as `cl` version 19.3x. The newest v143 toolset reports 19.44, which is outside that range, so CUDA 12.9 refuses it. You do not need to uninstall anything. Install an older v143 toolset next to the new one:
+
+1. Open **Visual Studio Installer** > **Modify** on your VS 2022 Build Tools.
+2. Go to **Individual components** and search for `14.39` (or `v143 ... 17.9`). Tick **MSVC v143 - VS 2022 C++ x64/x86 build tools (v14.39)** and install.
+3. Open the **x64 Native Tools Command Prompt for VS 2022** and select that toolset for the session:
+
+```powershell
+vcvars64.bat -vcvars_ver=14.39
+```
+
+Do not use `-allow-unsupported-compiler`. Before the long build, check the pairing in that same prompt:
+
+```powershell
+cl                       # expect a compiler version starting with 19.39 (not 19.44)
+nvcc --version
+"__global__ void k(){} int main(){k<<<1,1>>>(); return cudaDeviceSynchronize();}" | Out-File -Encoding ascii hello.cu
+nvcc hello.cu -o hello.exe
+.\hello.exe; echo "exit code: $LASTEXITCODE"      # 0 means toolkit, compiler and driver work together
+```
 
 The pinned commit is `a946eb541a6d3051496bdcc451a0fa85772b8dfd` (2026-11-16). The spike scripts were checked against its source.
 
@@ -57,7 +92,26 @@ cmake --build build
 .\build\chunked_moe.exe --backend CUDA0 --type q8_0 --n-expert 128 --n-used 8 --n-tokens 1   --iters 200 --chunks 4
 ```
 
-This builds one Qwen3-30B-A3B MoE layer (2048 x 768, 128 experts, top-8). It checks that three chunks summed equal the fused expert, that width k equals a plain f32 reference using the first k chunks, and times fused against chunked k = 1..3. The last command tries four chunks (192 neurons each), which only works with 32-element block types such as q8_0.
+If you already built it, update the repository and rebuild; only the spike recompiles. Use branch `task-2-3-scaffolding-evalset` (the timing fix is there):
+
+```powershell
+git fetch origin; git checkout task-2-3-scaffolding-evalset; git pull
+cmake --build build
+$env:PATH = "$PWD\build\bin;" + $env:PATH     # needed so Windows finds ggml*.dll
+```
+
+Timing now warms the GPU for 1.5 s and reports the median of 7 rounds with the spread. `--rounds` and `--warmup-ms` change that. If the spread is above 25% the program says so.
+
+This builds one Qwen3-30B-A3B MoE layer (2048 x 768, 128 experts, top-8). It checks that three chunks summed equal the fused expert, that width k equals a plain f32 reference using the first k chunks, and times fused against chunked k = 1..3. To test whether the chunking price can be avoided (width k as a prefix view of the one fused tensor, no chunk loop), add `--views` to the first two commands:
+
+```powershell
+.\build\chunked_moe.exe --backend CUDA0 --type q4_K --n-expert 128 --n-used 8 --n-tokens 1   --iters 200 --views
+.\build\chunked_moe.exe --backend CUDA0 --type q4_K --n-expert 128 --n-used 8 --n-tokens 512 --iters 20  --views
+```
+
+If the CUDA backend rejects a view, the program stops with an assertion message. Paste it back; that is a result too.
+
+The last command tries four chunks (192 neurons each), which only works with 32-element block types such as q8_0.
 
 Paste back: all three outputs in full.
 

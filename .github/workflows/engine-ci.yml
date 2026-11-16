@@ -1,0 +1,28 @@
+name: Engine (CPU build)
+
+# Builds the pinned llama.cpp with the Molt patches on the CPU backend. CUDA and Vulkan builds need
+# a GPU toolchain and are done on the test machines.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "engine/**"
+      - ".github/workflows/engine-ci.yml"
+  pull_request:
+    paths:
+      - "engine/**"
+      - ".github/workflows/engine-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - run: python3 engine/build.py --backend cpu --jobs 4
+      # Molt's own C++ tests are labelled "molt" (Tasks 6 and 7). None exist yet.
+      - run: ctest --test-dir engine/build/cpu -L molt --no-tests=ignore --output-on-failure

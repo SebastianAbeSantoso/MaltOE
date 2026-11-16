@@ -1,0 +1,12 @@
+{
+  "temperature": 0,
+  "seed": 1,
+  "stream": false,
+  "max_tokens": { "coding": 768, "reasoning": 640 },
+  "chat_template_kwargs": { "enable_thinking": false },
+  "notes": [
+    "Greedy decoding with a fixed seed. The same settings are used for every configuration (Req 10.4).",
+    "Qwen3 thinking is off for evaluation so runs stay short and comparable (design.md). The demo chat has a toggle.",
+    "max_tokens are initial values chosen before any result exists. A response cut off by the limit is scored as it stands."
+  ]
+}

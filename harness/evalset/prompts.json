@@ -1,0 +1,4 @@
+{
+  "coding": "Complete the following Python function. Reply with the complete function in a single ```python code block and nothing else.\n\n{prompt}",
+  "reasoning": "{question}\n\nSolve this step by step. Finish with a final line of the form '#### <number>'."
+}

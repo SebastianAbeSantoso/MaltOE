@@ -10,7 +10,7 @@ Everything lives in one public repo with `.kiro/` at the root. There is no git s
 Molt/
 ├── .kiro/
 │   ├── specs/molt/          requirements.md, design.md, tasks.md
-│   ├── steering/            product, tech, structure, research-integrity, handoff (manual)
+│   ├── steering/            product, tech, structure, workflow, research-integrity, handoff (manual)
 │   └── hooks/               post-task checks: checks-after-task.json (sh), checks-after-task-windows.json + scripts/checks.ps1 (PowerShell)
 ├── docs/
 │   ├── elastic-kiroween-handoff.md   source of truth from planning
@@ -18,9 +18,11 @@ Molt/
 │   ├── baseline-report.md            Task 4 output; the only source of thresholds
 │   ├── kiroween-rules.md             Devpost rules check
 │   └── results/                      harness outputs with machine manifests
-├── spikes/                  Task 1 throwaway experiments (width emulation, chunked moe, ballast probe)
+├── spikes/                  Task 1 throwaway experiments (width emulation, chunked moe, MoE cache probe, ballast probe, Edge0 steps)
 ├── engine/
 │   ├── LLAMA_CPP_COMMIT     pinned upstream commit
+│   ├── .cache/              fetched llama.cpp checkout, owned by build.py (not committed)
+│   ├── build/<backend>/     build output (not committed)
 │   ├── patches/             small patch series: loader, graph, decode loop, server endpoints
 │   ├── molt/                new C++: chunked MoE graph, expert pager, control endpoint, tests
 │   └── build.py             fetch, patch, build (cpu / cuda / vulkan)
