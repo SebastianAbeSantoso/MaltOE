@@ -40,8 +40,9 @@ struct options {
     int64_t n_used   = 8;
     int64_t n_tokens = 1;            // 1 = decode, larger = prefill
     int     n_chunks = 3;
-    int     iters    = 50;
-    int     warmup   = 5;
+    int     iters    = 50;   // calls per timed round
+    int     rounds   = 7;    // timed rounds per variant; the median is reported
+    int     warmup_ms = 1500; // run the GPU flat out this long before measuring (clock ramp-up)
     uint32_t seed    = 1234;
     bool    list_devices = false;
 };
@@ -71,7 +72,8 @@ static bool parse_args(int argc, char ** argv, options & o) {
         else if (a == "--n-tokens") o.n_tokens  = atoll(next("--n-tokens"));
         else if (a == "--chunks")   o.n_chunks  = atoi(next("--chunks"));
         else if (a == "--iters")    o.iters     = atoi(next("--iters"));
-        else if (a == "--warmup")   o.warmup    = atoi(next("--warmup"));
+        else if (a == "--rounds")   o.rounds    = atoi(next("--rounds"));
+        else if (a == "--warmup-ms") o.warmup_ms = atoi(next("--warmup-ms"));
         else if (a == "--seed")     o.seed      = (uint32_t) atoll(next("--seed"));
         else if (a == "--list-devices") o.list_devices = true;
         else { fprintf(stderr, "unknown argument %s\n", a.c_str()); return false; }
@@ -230,13 +232,34 @@ static diff_stats compare(const std::vector<float> & a, const std::vector<float>
     return s;
 }
 
-static double time_graph(ggml_backend_t backend, ggml_cgraph * graph, int warmup, int iters) {
-    for (int i = 0; i < warmup; ++i) { ggml_backend_graph_compute(backend, graph); }
+// Mean ms per call over `iters` calls.
+static double run_calls(ggml_backend_t backend, ggml_cgraph * graph, int iters) {
     const auto t0 = std::chrono::steady_clock::now();
     for (int i = 0; i < iters; ++i) { ggml_backend_graph_compute(backend, graph); }
     const auto t1 = std::chrono::steady_clock::now();
     return std::chrono::duration<double, std::milli>(t1 - t0).count() / iters;
 }
+
+// A GPU that has been idle sits in a low power state and takes a while to reach full clocks. Calls of
+// 0.1 ms or 5 ms measured right after idle are mostly measuring that ramp-up, so run flat out first.
+static void warm_up(ggml_backend_t backend, ggml_cgraph * graph, int ms) {
+    const auto t0 = std::chrono::steady_clock::now();
+    while (std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count() < ms) {
+        ggml_backend_graph_compute(backend, graph);
+    }
+}
+
+struct timing {
+    std::vector<double> samples;
+    double median() const {
+        std::vector<double> v = samples;
+        std::sort(v.begin(), v.end());
+        return v[v.size() / 2];
+    }
+    double lo() const { return *std::min_element(samples.begin(), samples.end()); }
+    double hi() const { return *std::max_element(samples.begin(), samples.end()); }
+    double spread_pct() const { return 100.0 * (hi() - lo()) / median(); }
+};
 
 int main(int argc, char ** argv) {
     options o;
@@ -411,13 +434,36 @@ int main(int argc, char ** argv) {
     }
 
     // ----- timing -----
+    // Order matters: the first graph measured pays for any clock ramp-up and cache warm-up. So the GPU
+    // is warmed first, every variant is timed in several rounds, and the order is rotated each round so
+    // that no variant is always first or last. The median over rounds is reported with the spread.
     printf("\ntiming, ms per call (one MoE layer: gate+up+swiglu+down for %lld routed experts, %lld token(s))\n",
            (long long) o.n_used, (long long) o.n_tokens);
-    const double t_fused = time_graph(backend, gf.graph, o.warmup, o.iters);
-    printf("  fused (1 tensor, 100%% width): %8.4f ms\n", t_fused);
+    printf("(%d rounds x %d calls, order rotated, %d ms warm-up; no CUDA graphs, so launch overhead is included)\n",
+           o.rounds, o.iters, o.warmup_ms);
+    std::vector<graph_pack *> variants = { &gf };
+    for (auto & g : gk) { variants.push_back(&g); }
+    std::vector<timing> times(variants.size());
+    for (auto * v : variants) { warm_up(backend, v->graph, o.warmup_ms / (int) variants.size()); }
+    warm_up(backend, gf.graph, o.warmup_ms);
+    for (int r = 0; r < o.rounds; ++r) {
+        for (size_t j = 0; j < variants.size(); ++j) {
+            const size_t idx = (j + r) % variants.size();
+            times[idx].samples.push_back(run_calls(backend, variants[idx]->graph, o.iters));
+        }
+    }
+    const double t_fused = times[0].median();
+    printf("  fused (1 tensor, 100%% width): %8.4f ms   (min %.4f, max %.4f, spread %.0f%%)\n",
+           t_fused, times[0].lo(), times[0].hi(), times[0].spread_pct());
+    bool noisy = times[0].spread_pct() > 25.0;
     for (int k = 1; k <= C; ++k) {
-        const double t = time_graph(backend, gk[k - 1].graph, o.warmup, o.iters);
-        printf("  chunked k=%d (%3d%% width):     %8.4f ms   (%.2fx of fused)\n", k, (int) (100.0 * k / C), t, t / t_fused);
+        const timing & t = times[k];
+        printf("  chunked k=%d (%3d%% width):     %8.4f ms   (min %.4f, max %.4f, spread %.0f%%)   %.2fx of fused\n",
+               k, (int) (100.0 * k / C), t.median(), t.lo(), t.hi(), t.spread_pct(), t.median() / t_fused);
+        noisy = noisy || t.spread_pct() > 25.0;
+    }
+    if (noisy) {
+        printf("  NOTE: spread above 25%%. Plug in the laptop, close other GPU programs, and run again; treat these numbers as rough.\n");
     }
     printf("\nresult: %s\n", ok ? "PASS" : "FAIL");
 

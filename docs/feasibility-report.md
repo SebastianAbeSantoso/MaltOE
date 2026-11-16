@@ -139,6 +139,31 @@ What it lacks for Molt:
 - **Cost:** on a server CPU with 32 experts (not 128) and q4_K weights, a decode call took about 0.40x, 0.81x, and 1.21x of the fused time at k = 1, 2, 3. Time scales with width. The 1.1x to 1.2x overhead at full width on CPU comes from extra operations; **CUDA may differ, which is what Step A measures.**
 - **Block-size rule:** four chunks (192 neurons) works with q8_0 and is rejected for q4_K because 192 is not a multiple of 256. This confirms the note in design.md.
 
+### 6.6a First CUDA run of the chunked-expert spike (RTX 4060 Laptop GPU, q4_K, 128 experts, top-8, one layer)
+
+Run by the builder on 2026-11-16, llama.cpp `a946eb54`, CUDA 12.9, MSVC 19.39.
+
+**Correctness, verified.** Summing three chunks equals the fused expert to 9.0e-8 (decode, 1 token) and 1.3e-7 (prefill, 512 tokens) relative RMS error, the same agreement as on CPU. Width k against the f32 prefix reference is 1.16e-2 to 1.19e-2 at every k, which is the quantization noise the full-width kernel also has. Width 1 and width 3 differ by 0.85 (decode) and 0.82 (prefill), so the test can tell widths apart. Four chunks with q8_0 (192 neurons each) also pass, at 1.1e-2 against the reference and 9.9e-8 against fused. The chunked layout is therefore **correct on CUDA**.
+
+**Timing, not yet trustworthy.** First run, ms per call:
+
+| | decode, 1 token (q4_K) | prefill, 512 tokens (q4_K) | decode, 1 token, 4 chunks (q8_0) |
+| --- | ---: | ---: | ---: |
+| fused | 0.0821 | 9.639 | 0.1779 |
+| chunked k = 1 | 0.0537 (0.65x) | 1.221 (0.13x) | 0.0548 (0.31x) |
+| chunked k = 2 | 0.1117 (1.36x) | 2.806 (0.29x) | 0.1021 (0.57x) |
+| chunked k = 3 | 0.1615 (1.97x) | 4.273 (0.44x) | 0.1634 (0.92x) |
+| chunked k = 4 | | | 0.2414 (1.36x) |
+
+Two things in these numbers are suspicious, and I do not use them for any conclusion:
+
+1. **Full-width prefill is 2.3x faster chunked than fused.** There is no reason three small matmuls should beat one large one that much. The likely cause is method: the fused variant was timed first, right after the GPU left its idle power state, with a warm-up of only 5 calls (about 0.4 ms in decode). A first measurement is the one most distorted by clock ramp-up.
+2. **Decode calls are 0.05 to 0.16 ms,** which is close to launch overhead for the 4 to 14 kernels per call. The spike does not use CUDA graphs, which llama.cpp uses for single-token decode, so its decode overhead is probably overstated.
+
+The spike's timing was changed to warm the GPU for 1.5 s, time every variant in 7 rounds with the order rotated, and report the median with min, max, and spread. It needs a rerun on the laptop.
+
+What can be said already: narrower widths do less work in every column, and the chunk loop adds work at full width in decode (more kernel launches, and the activations are quantized again for each matmul). If that overhead survives the rerun, it can be reduced by merging gate and up into one tensor per chunk (llama.cpp already has a merged `gate_up` path) or by CUDA graphs. Neither is attempted yet.
+
 ### 6.5 Smallest engine change for Route A (Req 1.7)
 
 llama.cpp has dynamic residency (VRAM to host) but not variable-width execution, so the change is to add width on top and extend the cache:
@@ -155,7 +180,8 @@ I am not giving an hours estimate; the real cost is item 3, and a short spike (r
 
 | Measurement | Step | Result |
 | --- | --- | --- |
-| Chunked experts on CUDA: correctness and ms per layer, k = 1..3 vs fused (decode and prefill) | A | *pending* |
+| Chunked experts on CUDA: correctness | A | **Passed** on the RTX 4060 Laptop GPU (see 6.6a) |
+| Chunked experts on CUDA: ms per layer, k = 1..3 vs fused | A | **Preliminary, unreliable** (see 6.6a); rerun with the fixed timing method pending |
 | Upstream cache: decode tok/s, hit rate, bytes uploaded, disk read, for static `-ncmoe` vs cache sizes | B | *pending* |
 
 ## 7. G3: width quality (pending)

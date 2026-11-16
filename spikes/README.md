@@ -92,6 +92,16 @@ cmake --build build
 .\build\chunked_moe.exe --backend CUDA0 --type q8_0 --n-expert 128 --n-used 8 --n-tokens 1   --iters 200 --chunks 4
 ```
 
+If you already built it, update the repository and rebuild; only the spike recompiles. Use branch `task-2-3-scaffolding-evalset` (the timing fix is there):
+
+```powershell
+git fetch origin; git checkout task-2-3-scaffolding-evalset; git pull
+cmake --build build
+$env:PATH = "$PWD\build\bin;" + $env:PATH     # needed so Windows finds ggml*.dll
+```
+
+Timing now warms the GPU for 1.5 s and reports the median of 7 rounds with the spread. `--rounds` and `--warmup-ms` change that. If the spread is above 25% the program says so.
+
 This builds one Qwen3-30B-A3B MoE layer (2048 x 768, 128 experts, top-8). It checks that three chunks summed equal the fused expert, that width k equals a plain f32 reference using the first k chunks, and times fused against chunked k = 1..3. The last command tries four chunks (192 neurons each), which only works with 32-element block types such as q8_0.
 
 Paste back: all three outputs in full.
