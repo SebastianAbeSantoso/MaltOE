@@ -56,7 +56,7 @@
     - Record perplexity and solved counts. **Checkpoint:** the builder judges whether `k = 1` and `k = 2` are useful. If not, record the C = 4 fallback plan; do not run it unless asked.
     - _Requirements: 1.5, 4.2, 11.3_
 
-  - [ ] 1.6 G2a Engine spike: chunked `mul_mat_id` on CUDA [HW-L] (CPU run done in the sandbox: correct for f32, f16, q8_0, q4_K. CUDA run done by the builder 2026-11-16: correct on the RTX 4060; timings preliminary, rerun with the fixed timing method pending)
+  - [x] 1.6 G2a Engine spike: chunked `mul_mat_id` on CUDA [HW-L] (CPU run done in the sandbox: correct for f32, f16, q8_0, q4_K. CUDA run done by the builder 2026-11-16: correct on the RTX 4060; timed with the fixed method: full-width chunked is 1.97x the fused expert in decode and 1.48x in prefill; see report 6.6a)
     - Write a small standalone C++ test against the pinned ggml in `spikes/chunked_moe/`. It builds an expert FFN as 3 chunks (`[n_embd, 256, n_expert]` gate/up, `[256, n_embd, n_expert]` down) in Q4_K, runs `mul_mat_id` on CUDA for k = 1..3, and compares with an f32 reference.
     - Record correctness and per-layer time per `k` against one fused `mul_mat_id` at full width.
     - _Requirements: 1.4, 1.7_
