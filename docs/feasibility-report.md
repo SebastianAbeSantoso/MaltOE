@@ -1,4 +1,4 @@
-# Feasibility Report: Molt Task 1
+# Feasibility Report: MaltOE Task 1
 
 Status as of 2026-11-16: **research gates decided; hardware gates waiting for your runs.** Gates G0 and G1 and the candidate review are complete. G2 is half answered and its main finding changes the engine plan. G3 and G4 need the laptop (instructions in [`spikes/README.md`](../spikes/README.md)).
 
@@ -18,10 +18,10 @@ Evidence labels used below: **verified** means I read it in a primary source or 
 
 These need your decision at the checkpoint (section 9). I have not edited `requirements.md` or `design.md`.
 
-1. **llama.cpp already contains a working-set-style expert cache.** `--moe-cache-mib` (marked EXPERIMENTAL in `include/llama.h`) keeps frequently and recently used experts of host-resident layers in a VRAM buffer, uploads only the missing ones, and hooks into `build_moe_ffn`. This removes the biggest risk in design.md (hand-building the per-layer slot remap and host sync) but means Molt extends someone else's cache. It also means the strongest stock baseline is `--n-cpu-moe` **plus** `--moe-cache-mib`, which Req 2.1 and Req 10.8 do not yet name. Details in section 6.
-2. **The RAM and SSD tiers would be the operating system's page cache**, not a Molt-managed cache, unless we build one. Upstream host experts are memory-mapped by default.
+1. **llama.cpp already contains a working-set-style expert cache.** `--moe-cache-mib` (marked EXPERIMENTAL in `include/llama.h`) keeps frequently and recently used experts of host-resident layers in a VRAM buffer, uploads only the missing ones, and hooks into `build_moe_ffn`. This removes the biggest risk in design.md (hand-building the per-layer slot remap and host sync) but means MaltOE extends someone else's cache. It also means the strongest stock baseline is `--n-cpu-moe` **plus** `--moe-cache-mib`, which Req 2.1 and Req 10.8 do not yet name. Details in section 6.
+2. **The RAM and SSD tiers would be the operating system's page cache**, not a MaltOE-managed cache, unless we build one. Upstream host experts are memory-mapped by default.
 3. **The importance run should use the Q4_K_M file, not Q8_0.** The official Q8_0 GGUF is 32.5 GB, more than the laptop's RAM and a heavy download. The final conversion (Task 5) can use Q8_0 on the PC if it matters.
-5. **Name collision.** NVIDIA's NeMo team open-sourced a project called Molt on 2026-07-22 ([NVIDIA-NeMo/labs-molt](https://github.com/NVIDIA-NeMo/labs-molt), [paper, arXiv 2607.21653](https://arxiv.org/abs/2607.21653)). It is a PyTorch framework for training language models with agentic reinforcement learning (Ray, vLLM, FSDP2). It does not do inference on consumer GPUs, expert width, or expert residency, so it is **not prior art for Molt's claim**. It does share the name, it is older than this project, and anyone searching for "Molt" will find it first. I did not check whether NVIDIA holds a trademark on the name; that needs a lawyer, not a search. Options are in the chat log and need your decision before the README and the demo are final: keep the name with a disambiguation note, or rename now while the code base is small.
+5. **Name collision (the reason for the rename).** This project's earlier working name was Molt. NVIDIA's NeMo team open-sourced an unrelated project called Molt on 2026-07-22 ([NVIDIA-NeMo/labs-molt](https://github.com/NVIDIA-NeMo/labs-molt), [paper, arXiv 2607.21653](https://arxiv.org/abs/2607.21653)). It is a PyTorch framework for training language models with agentic reinforcement learning (Ray, vLLM, FSDP2). It does not do inference on consumer GPUs, expert width, or expert residency, so it is **not prior art for MaltOE's claim**. It was older than this project and would have been found first by anyone searching the name. The project was renamed to MaltOE on 2026-11-16 (checks in 3.2c). I did not check whether NVIDIA holds a trademark on the name; that needs a lawyer, not a search.
 4. **README prior art needs additions:** llama.cpp's MoE cache, ElastiLM, and a note that DyMoE was also evaluated on Qwen3-30B-A3B. Also two wording fixes (DATS link, Yao et al.). Section 3.
 
 ## 3. G0: novelty
@@ -51,7 +51,7 @@ These need your decision at the checkpoint (section 9). I have not edited `requi
 
 The first G0 pass searched papers and a few named systems. A GitHub search afterwards found a crowded field of open-source projects that run MoE models larger than VRAM on consumer machines. Star counts are from the GitHub API on 2026-11-16. "Read" means I fetched the README and searched it for width, precision, top-k, budget, quality and live-pressure language, not that I read every line or ran the code.
 
-| Project | What it does (per its README) | Overlap with Molt |
+| Project | What it does (per its README) | Overlap with MaltOE |
 | --- | --- | --- |
 | [JustVugg/colibri](https://github.com/JustVugg/colibri) (Apache-2.0, 51.5k stars) | Hierarchical engine for frontier MoE models: hot experts on the GPU (CUDA, Vulkan), warm in RAM, cold on SSD. A hardware-aware planner detects RAM and VRAM budgets at setup and picks a build. Lossless or "quality-bounded" formats. | **Residency tiers and hardware detection.** No width control found. |
 | [wici-ai/inferssd](https://github.com/wici-ai/inferssd) (Apache-2.0, 1.2k) | llama.cpp plus SSD expert streaming, browser chat, OpenAI-compatible API. | Residency. |
@@ -76,10 +76,12 @@ The first G0 pass searched papers and a few named systems. A GitHub search after
 
 | Name | Finding |
 | --- | --- |
-| Molt | NVIDIA's NeMo team released an agentic-RL training framework called Molt on 2026-07-22 (section 2, finding 5). |
+| Molt (earlier working name) | NVIDIA's NeMo team released an agentic-RL training framework called Molt on 2026-07-22 (section 2, finding 5). **Reason for the rename.** |
 | Lamina | [eddoursul/Lamina](https://github.com/eddoursul/Lamina): a fork of Strata that runs MoE models across NVIDIA GPUs and RAM. Also a 2024 paper, [arXiv 2405.01814](https://arxiv.org/abs/2405.01814), on attention offloading. **Taken, and in the same field.** |
 | Instar | [instar.sh](https://instar.sh/): an AI-agent framework ("Claude Code, with a mind of its own"). **Taken.** |
 | Ecdysis | [cuiyu-ai/Ecdysis](https://github.com/cuiyu-ai/Ecdysis): "Efficient and Effective Training of Runtime Harnesses for LLM Agents" (14 stars). **Taken in AI.** |
+| Malt | Taken as a package name on PyPI (a MATLAB linter) and npm. [bnpr/Malt](https://github.com/bnpr/Malt) (Blender rendering framework, 1.2k stars, malt3d.com), [themetaschemer/malt](https://github.com/themetaschemer/malt) (an ML toolkit), and malt.com (a large freelance marketplace whose AI and LLM engineer profiles dominate search results). **Busy; not chosen.** |
+| **MaltOE (chosen)** | No repository, package, or project of that name found on GitHub, PyPI, npm, or the web. `maltoe` is a personal GitHub account (since 2009, inactive). Malt + MoE, pronounced "Malt". Searches cover only those sources; trademarks were not checked. |
 
 ### 3.3 Verdict
 
@@ -89,7 +91,7 @@ I did not find work that changes expert width and expert residency together, dur
 
 1. DATS: link the primary source (done in the same PR as this report).
 2. Yao et al.: the README said "applied to layers and early exits". The abstract says mandatory and optional parts with depth assignment and stage scheduling; the words "early exit" do not appear in the paper. Reworded (same PR).
-3. Add llama.cpp's MoE cache to prior art, since Molt builds on it (same PR).
+3. Add llama.cpp's MoE cache to prior art, since MaltOE builds on it (same PR).
 4. Add ElastiLM (same PR). DyMoE row gains the Qwen3-30B-A3B note (same PR).
 
 ### 3.5 Handoff figures re-verified
@@ -155,9 +157,9 @@ Source: [Qwen/Qwen3-30B-A3B](https://huggingface.co/Qwen/Qwen3-30B-A3B), `config
 
 What it does: for layers whose experts are host-resident, it keeps a device buffer of expert "slots". Each layer has a slot map in host memory; when the scheduler copies the map to the device, a callback uploads the missing experts. Policy: one LRU list per frequency class, with a combined recency-and-frequency score decayed with a 128-token half-life. Optionally the CPU computes a share of the misses instead of uploading them.
 
-What it lacks for Molt:
+What it lacks for MaltOE:
 
-| Molt needs | Upstream |
+| MaltOE needs | Upstream |
 | --- | --- |
 | Change the cache size while running | No. Size is a context parameter (`cparams.moe_cache_size`) fixed at context creation. |
 | Hit and miss counters for the dashboard | Printed once to the log at teardown (`log_stats`). No API. |
@@ -196,12 +198,12 @@ The first run's prefill figure for the fused variant (9.6 ms) was an artifact of
 1. **Narrower is cheaper in proportion, measured against the chunked full width.** k = 2 costs 0.65x of k = 3 in decode and 0.64x in prefill; k = 1 costs 0.34x and 0.27x. The ideal is 0.67x and 0.33x. So the width mechanism does reduce work.
 2. **Chunking has a price at full width, measured against the stock fused expert:** 1.97x in decode and 1.48x in prefill. At k = 2 it is still 1.29x in decode, and only k = 1 beats the fused expert in decode (0.68x). Prefill is better: k = 2 is on par with fused and k = 1 is 2.5x faster.
 3. **Why, not tested:** each chunk repeats the gate, up, down and activation steps, so one layer runs 3x as many kernels, and the input is quantized again for every matmul. At decode the calls are only 0.05 to 0.14 ms, which is close to launch cost. This spike does not use CUDA graphs, which llama.cpp does use for single-token decode, so the decode figure probably overstates the real engine's cost.
-4. **Sizing (estimate from arithmetic, not measured):** the extra 0.07 ms per layer at full-width decode is about 3.4 ms per token across 48 layers, if every expert were resident on the GPU. One expert at q4_K is about 2.65 MB (768 x 2048 x 3 weights at about 4.5 bits). Over a PCIe link of about 14 GB/s (a guess for a laptop x8 link) that is roughly 0.19 ms to fetch, longer than the whole per-layer chunking cost. So the price matters when everything fits in VRAM, and much less when experts are being streamed, which is the case Molt exists for. WiSP also reports decode as link-bound in that regime.
+4. **Sizing (estimate from arithmetic, not measured):** the extra 0.07 ms per layer at full-width decode is about 3.4 ms per token across 48 layers, if every expert were resident on the GPU. One expert at q4_K is about 2.65 MB (768 x 2048 x 3 weights at about 4.5 bits). Over a PCIe link of about 14 GB/s (a guess for a laptop x8 link) that is roughly 0.19 ms to fetch, longer than the whole per-layer chunking cost. So the price matters when everything fits in VRAM, and much less when experts are being streamed, which is the case MaltOE exists for. WiSP also reports decode as link-bound in that regime.
 
 **What it changes (for your decision, section 9):**
 
 - **Speed objective.** The approved rationale was that narrower is faster in FLOPs, so capping at C - 1 is a latency trade-off even with VRAM to spare. In this spike that is true against the chunked full width, but not against the fused expert in decode: k = 2 is 1.29x slower than fused. The Speed cap should be re-checked in the real engine (CUDA graphs on) before its rationale is repeated in the write-up.
-- **Configuration A in the 2x2.** "Full" must say whether it is the stock fused expert or the chunked layout at k = C. They differ by the price above. Comparing Molt's chunked full width against stock llama.cpp charges Molt for the chunking; comparing against chunked full width isolates the controller. The report should show both.
+- **Configuration A in the 2x2.** "Full" must say whether it is the stock fused expert or the chunked layout at k = C. They differ by the price above. Comparing MaltOE's chunked full width against stock llama.cpp charges MaltOE for the chunking; comparing against chunked full width isolates the controller. The report should show both.
 - **Reducing the price** (none attempted): merge gate and up into one tensor per chunk (llama.cpp already has a merged `gate_up` path), quantize the input once per layer, or add one op that handles k chunks in a single launch.
 
 ### 6.6b Avoiding the chunk price: prefix views (CPU result; CUDA pending)
@@ -226,7 +228,7 @@ Two limits that stay even if CUDA accepts it:
 
 llama.cpp has dynamic residency (VRAM to host) but not variable-width execution, so the change is to add width on top and extend the cache:
 
-1. **Package loader:** read `molt.*` metadata and the chunk tensors for `qwen3moe`.
+1. **Package loader:** read `maltoe.*` metadata and the chunk tensors for `qwen3moe`.
 2. **Graph:** loop the `build_experts` lambda over chunks `j < k` and sum the down-projection outputs.
 3. **Cache registration:** register each chunk's tensors with the MoE cache so chunks are cached and evicted independently. A narrower width then never uploads the wider chunks. *Largest uncertainty:* the cache is keyed by layer and by tensor layout, and I have not yet read it deeply enough to say whether chunk triples can be registered as extra logical layers without restructuring it.
 4. **Runtime resize and counters:** add what upstream lacks (6.3).
@@ -273,7 +275,7 @@ Proposed changes for your approval (none applied yet):
 
 1. **Baselines:** add `llama.cpp --n-cpu-moe + --moe-cache-mib` (BL-2b) to Req 2.1 and Req 10.8, because it is the strongest stock setup.
 2. **Pager design:** replace "write an expert pager" with "extend llama.cpp's MoE cache" (chunk-aware pages, runtime resize, counters, working-set signal). Tasks 7.1 to 7.8 change accordingly.
-3. **RAM and SSD tiers for v1:** use the operating system's page cache through mmap, and measure bytes read with OS counters. Build Molt's own unbuffered reader only if Step B and Step C show the page cache cannot be controlled well enough. Req 6.1 (three tiers) still holds.
+3. **RAM and SSD tiers for v1:** use the operating system's page cache through mmap, and measure bytes read with OS counters. Build MaltOE's own unbuffered reader only if Step B and Step C show the page cache cannot be controlled well enough. Req 6.1 (three tiers) still holds.
 4. **Add a task 1.7b:** a short spike that reads `llama-moe-cache.cpp` end to end and registers one chunked layer, to settle the main uncertainty in 6.5.
 5. **Importance run on Q4_K_M** (finding 3).
 6. **Fallbacks:** if G3 fails at k = 1, try `C = 4` (q8_0-type chunks only) before anything else; MoSE only if code and checkpoints appear; Route B (Edge0) only if G2 on CUDA fails.

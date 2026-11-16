@@ -7,7 +7,7 @@
       "trigger": "PostTaskExec",
       "action": {
         "type": "command",
-        "command": "sh -c 'root=$(git rev-parse --show-toplevel 2>/dev/null || pwd); [ -d \"$root/Molt/.git\" ] && root=\"$root/Molt\"; cd \"$root\" || exit 1; if [ -f pyproject.toml ]; then uv run ruff check . && uv run ruff format --check . && uv run pytest -q; else echo \"molt checks: no pyproject.toml yet (before Task 2), skipping\"; fi'",
+        "command": "sh -c 'root=$(git rev-parse --show-toplevel 2>/dev/null || pwd); if [ ! -f \"$root/pyproject.toml\" ]; then for d in \"$root\"/*/; do if [ -d \"${d}.git\" ] && [ -f \"${d}pyproject.toml\" ]; then root=\"${d%/}\"; break; fi; done; fi; cd \"$root\" || exit 1; if [ -f pyproject.toml ]; then uv run ruff check . && uv run ruff format --check . && uv run pytest -q; else echo \"maltoe checks: no pyproject.toml yet (before Task 2), skipping\"; fi'",
         "timeout": 300
       }
     }

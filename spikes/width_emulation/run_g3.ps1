@@ -21,7 +21,7 @@
 
 .EXAMPLE
   .\run_g3.ps1 -LlamaBin C:\src\llama.cpp\build\bin\Release -LlamaCppSrc C:\src\llama.cpp `
-      -BaseGguf D:\models\Qwen3-30B-A3B-Q4_K_M.gguf -WorkDir D:\molt-work
+      -BaseGguf D:\models\Qwen3-30B-A3B-Q4_K_M.gguf -WorkDir D:\maltoe-work
 
 .EXAMPLE
   .\run_g3.ps1 -DryRun   # print every command without running it

@@ -4,7 +4,7 @@ type Health = { status: string; version: string }
 type ServerState = { kind: 'checking' } | { kind: 'ok'; version: string } | { kind: 'unreachable' }
 
 // The chat panel and the live dashboard arrive in Task 11. This shell only proves that the
-// toolchain works and that the page can reach molt-core.
+// toolchain works and that the page can reach maltoe-core.
 export default function App() {
   const [server, setServer] = useState<ServerState>({ kind: 'checking' })
 
@@ -21,8 +21,8 @@ export default function App() {
 
   return (
     <main>
-      <h1>Molt</h1>
-      <p>One model, any GPU — it molts to fit.</p>
+      <h1>MaltOE</h1>
+      <p>Room to grow.</p>
       <p role="status">
         {server.kind === 'checking' && 'Checking the local server…'}
         {server.kind === 'ok' && `Local server is running (version ${server.version}).`}

@@ -3,16 +3,16 @@
 Tests that download the public evaluation datasets are opt-in, so the default run (and the
 post-task hook) is fast and works offline:
 
-    MOLT_TEST_NETWORK=1 uv run pytest
+    MALTOE_TEST_NETWORK=1 uv run pytest
 """
 
 import os
 
 import pytest
 
-NETWORK = os.environ.get("MOLT_TEST_NETWORK") == "1"
+NETWORK = os.environ.get("MALTOE_TEST_NETWORK") == "1"
 needs_network = pytest.mark.skipif(
-    not NETWORK, reason="set MOLT_TEST_NETWORK=1 to download datasets"
+    not NETWORK, reason="set MALTOE_TEST_NETWORK=1 to download datasets"
 )
 
 

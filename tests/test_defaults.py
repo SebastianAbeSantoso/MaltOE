@@ -1,10 +1,10 @@
-"""Guards on the tunables in molt/defaults.py, against the design.md they mirror."""
+"""Guards on the tunables in maltoe/defaults.py, against the design.md they mirror."""
 
 from pathlib import Path
 
-from molt import defaults
+from maltoe import defaults
 
-DESIGN = Path(__file__).resolve().parent.parent / ".kiro" / "specs" / "molt" / "design.md"
+DESIGN = Path(__file__).resolve().parent.parent / ".kiro" / "specs" / "maltoe" / "design.md"
 
 
 def test_values_are_sane():

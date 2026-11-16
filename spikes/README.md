@@ -117,7 +117,7 @@ Paste back: all three outputs in full.
 
 ## Step B: llama.cpp's MoE cache (Task 1.7)
 
-At the pinned commit, llama.cpp has an experimental `--moe-cache-mib` option that keeps frequently used experts of host-resident layers in VRAM. Molt would build on it, so we measure it before designing anything.
+At the pinned commit, llama.cpp has an experimental `--moe-cache-mib` option that keeps frequently used experts of host-resident layers in VRAM. MaltOE would build on it, so we measure it before designing anything.
 
 ```powershell
 cd <repo>\spikes\moe_cache_probe
@@ -159,7 +159,7 @@ This is the long one. It makes four versions of the model: full width, two third
 
 ```powershell
 cd <repo>\spikes\width_emulation
-.\run_g3.ps1 -LlamaBin C:\src\llama.cpp\build\bin -LlamaCppSrc C:\src\llama.cpp -BaseGguf D:\models\Qwen3-30B-A3B-Q4_K_M.gguf -WorkDir D:\molt-work
+.\run_g3.ps1 -LlamaBin C:\src\llama.cpp\build\bin -LlamaCppSrc C:\src\llama.cpp -BaseGguf D:\models\Qwen3-30B-A3B-Q4_K_M.gguf -WorkDir D:\maltoe-work
 ```
 
 Needs about 45 GB free on the work drive. It deletes each variant file after measuring it. To try one variant first: `-Variants k1`. If it is interrupted, re-run with `-SkipImatrix` to reuse the importance statistics.

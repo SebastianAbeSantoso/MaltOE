@@ -1,4 +1,4 @@
-# Implementation Plan — Molt (codename ELASTIC)
+# Implementation Plan — MaltOE (codename ELASTIC)
 
 ## How to read this plan
 
@@ -11,7 +11,7 @@
 ## Pre-flight (admin, not coding; do early)
 
 - [ ] P1. Request the Kiroween Kiro credits before December 1, 2026, 12:00 PM PT (December 2, 04:00 WITA). _Requirements: 15.5_
-- [ ] P2. Make the GitHub repo `SebastianAbeSantoso/Molt` public, or confirm it will be public before submission. Confirm `.kiro/` is committed and not in `.gitignore`. _Requirements: 15.1_
+- [ ] P2. Make the GitHub repo `SebastianAbeSantoso/MaltOE` public, or confirm it will be public before submission. Confirm `.kiro/` is committed and not in `.gitignore`. _Requirements: 15.1_
 - [~] P3. Re-check the official Kiroween 2026 rules on Devpost. Record any difference from the handoff dates in `docs/kiroween-rules.md`. _Requirements: 15.4, 15.6_ (partly done: dates match, but Devpost blocks automated reads, so the builder must confirm the items listed in `docs/kiroween-rules.md` in a browser)
 
 ## Tasks
@@ -88,9 +88,9 @@
     - _Requirements: 1.1, 1.5, 1.7_
 
 - [x] 2. Repository scaffolding
-  - [x] 2.1 Create the layout from `structure.md`: `molt/`, `engine/molt/`, `engine/patches/`, `engine/LLAMA_CPP_COMMIT`, `tools/ballast/`, `convert/`, `harness/`, `web/`, `tests/`, `docs/`.
+  - [x] 2.1 Create the layout from `structure.md`: `maltoe/`, `engine/maltoe/`, `engine/patches/`, `engine/LLAMA_CPP_COMMIT`, `tools/ballast/`, `convert/`, `harness/`, `web/`, `tests/`, `docs/`.
   - [x] 2.2 Set up the Python project with `uv`, Python 3.12, FastAPI, pydantic, pytest, hypothesis, ruff, and `pyproject.toml` with the ruff and pytest config.
-  - [x] 2.3 Add an engine build script that fetches llama.cpp at the pinned commit, applies `engine/patches/*.patch`, adds `engine/molt/` to the build, and builds with CUDA (Windows) or CPU (CI). (done and verified by a real CPU build of the pinned commit. The step "adds `engine/molt/` to the build" is deferred to the first patch in Task 6: there is no C++ in `engine/molt/` yet to add.)
+  - [x] 2.3 Add an engine build script that fetches llama.cpp at the pinned commit, applies `engine/patches/*.patch`, adds `engine/maltoe/` to the build, and builds with CUDA (Windows) or CPU (CI). (done and verified by a real CPU build of the pinned commit. The step "adds `engine/maltoe/` to the build" is deferred to the first patch in Task 6: there is no C++ in `engine/maltoe/` yet to add.)
   - [x] 2.4 Set up the web app with Vite, React, TypeScript, vitest, and eslint. FastAPI serves the build output as static files.
   - [x] 2.5 Add GitHub Actions CI: ruff and pytest; a CPU-only engine build and CTest; web lint and vitest.
   - _Requirements: 15.1_
@@ -113,23 +113,23 @@
 
 - [ ] 5. Elastic Package conversion pipeline
   - [ ] 5.1 `convert/importance.py`: per-expert neuron importance from imatrix statistics and down-column norms. Promote the logic from spike 1.5.
-  - [ ] 5.2 `convert/build_package.py`: permute, split into C = 3 chunks (`blk.{L}.ffn_{gate,up,down}_exps.c{j}`), copy non-expert tensors, write `molt.*` metadata, and quantize with `llama-quantize` using the imatrix.
-  - [ ] 5.3 `molt/package.py`: package validator that checks every metadata rule in design.md and names the bad key or tensor on failure.
+  - [ ] 5.2 `convert/build_package.py`: permute, split into C = 3 chunks (`blk.{L}.ffn_{gate,up,down}_exps.c{j}`), copy non-expert tensors, write `maltoe.*` metadata, and quantize with `llama-quantize` using the imatrix.
+  - [ ] 5.3 `maltoe/package.py`: package validator that checks every metadata rule in design.md and names the bad key or tensor on failure.
   - [ ] 5.4 Validator tests on synthetic GGUF headers (missing chunk, wrong chunk size, top-K mismatch).
   - [ ] 5.5 Build the Qwen3-30B-A3B package [HW-L or a machine with enough disk]. Record size, calibration data hash, and conversion time.
   - _Requirements: 4.1–4.4_
 
-- [ ] 6. molt-engine: width control (enables configs A and B)
-  - [ ] 6.1 Patch the loader to recognise `molt.*` keys and chunk tensors for `qwen3moe`.
+- [ ] 6. maltoe-engine: width control (enables configs A and B)
+  - [ ] 6.1 Patch the loader to recognise `maltoe.*` keys and chunk tensors for `qwen3moe`.
   - [ ] 6.2 Patch the graph builder to replace the fused MoE FFN with the chunk loop over `j < k`, applying router weights once after the chunk sum.
-  - [ ] 6.3 Add the control endpoint (`/molt/config`, `/molt/state`, `/molt/telemetry`) and the `PendingConfig` atomic swap, applied at Safe Boundaries (between decode steps, between prefill micro-batches, prefill to decode). Emit `config_applied`.
+  - [ ] 6.3 Add the control endpoint (`/maltoe/config`, `/maltoe/state`, `/maltoe/telemetry`) and the `PendingConfig` atomic swap, applied at Safe Boundaries (between decode steps, between prefill micro-batches, prefill to decode). Emit `config_applied`.
   - [ ] 6.4 Add per-token telemetry: latency, VRAM used, k.
   - [ ] 6.5 Engine test: chunk-loop output equals the f32 prefix-width reference for k = 1..3, and k = 3 matches the original fused expert within quant tolerance (Property 10).
   - [ ] 6.6 Engine test: `k` changes only inside boundary-apply (Property 4).
   - [ ] 6.7 [HW-L] Check that full-width perplexity of the package matches the original model within noise, and run the perplexity smoke test at k = 1, 2.
   - _Requirements: 4.4, 5.1, 5.2, 5.4, 5.5, 7.3_
 
-- [ ] 7. molt-engine: Expert Pager (enables configs C and D)
+- [ ] 7. maltoe-engine: Expert Pager (enables configs C and D)
   - [ ] 7.1 Per-layer VRAM slot pools with resize (shrink first). Page = `(L, e, j)`.
   - [ ] 7.2 Slot lookup: a host op after top-K remaps expert ids to slot ids and issues demand loads for missing pages `j < k` only.
   - [ ] 7.3 Working-set tracker: per-layer ring buffer over `W` tokens, `|WS_L|` at several windows, `ws_overflow` signal.
@@ -142,11 +142,11 @@
   - [ ] 7.10 Engine tests on CPU: eviction order (Property 3), working set kept while it fits (Property 2), at most `k` pages per miss (Property 9).
   - _Requirements: 6.1–6.9, 7.9_
 
-- [ ] 8. molt-core: models, profiler, adapters, controller
+- [ ] 8. maltoe-core: models, profiler, adapters, controller
   - [ ] 8.1 Data models from design.md (`EngineConfig`, `PendingConfig`, `TokenStats`, `Decision`, `Objective`). No token ids, text, or logits in any controller input type.
   - [ ] 8.2 Hardware profiler: engine `--probe`, NVML, `psutil` (total and available RAM), disk free, CPU info, conservative fallbacks marked "assumed".
   - [ ] 8.3 `SimEngineAdapter`: replays a recorded routing trace and models page sizes, slots, PCIe/SSD bandwidth, and per-chunk compute.
-  - [ ] 8.4 `MoltLlamaCppAdapter`: process start and stop, generate, post_config, telemetry, perplexity, health.
+  - [ ] 8.4 `MaltOELlamaCppAdapter`: process start and stop, generate, post_config, telemetry, perplexity, health.
   - [ ] 8.5 Memory model: `need(k, slots)` from engine-reported allocations, `effective_budget`.
   - [ ] 8.6 Joint Controller, session start: startup probe at k = 1..3, Objective rules (Quality / Balanced with `D_bal` / Speed capped at C − 1), refusal when nothing fits.
   - [ ] 8.7 Joint Controller, mid-session: the narrowing sequence (shrink cold slots → narrow k → trim to minimum → stop and report), widening with `h` and `T_hold`, memory-pressure signals only.
@@ -154,14 +154,14 @@
   - [ ] 8.9 Property tests (hypothesis) on `SimEngineAdapter` for Properties 1, 5, 6, 7, and 8.
   - _Requirements: 3.1–3.5, 5.1–5.7, 7.1–7.8, 7.10_
 
-- [ ] 9. Fillers: `molt-ballast`
+- [ ] 9. Fillers: `maltoe-ballast`
   - [ ] 9.1 `--vram` (CUDA): allocate in 256 MB blocks, touch, resize on command over a local control port. Promote from spike 1.8.
   - [ ] 9.2 `--ram`: `VirtualAlloc` + `VirtualLock`, resize on command.
   - [ ] 9.3 Harness and API integration: set filler size per run and for the squeeze schedule. Mark runs invalid if the filler cannot reach its target.
   - _Requirements: 2.2, 2.6, 7.4_
 
 - [ ] 10. OOM and crash recovery
-  - [ ] 10.1 Conversation store in `molt-core`, independent of the engine process.
+  - [ ] 10.1 Conversation store in `maltoe-core`, independent of the engine process.
   - [ ] 10.2 Restart path: on engine exit, restart at the next narrower config, re-run prefill on history, resume streaming. If the narrowest fails, show the cause and keep history.
   - [ ] 10.3 Test on `SimEngineAdapter` with injected OOM and crash: history unchanged (Property 11).
   - _Requirements: 7.9, 8.6_
@@ -192,7 +192,7 @@
   - _Requirements: 12.1–12.7_
 
 - [ ] 14. Stretch: AMD on the PC [HW-PC]
-  - [ ] 14.1 Build the engine with the Vulkan backend and run the same package. Add a Vulkan path to `molt-ballast --vram`.
+  - [ ] 14.1 Build the engine with the Vulkan backend and run the same package. Add a Vulkan path to `maltoe-ballast --vram`.
   - [ ] 14.2 Run the 2x2 at one budget with the RAM filler on, and record which requirements pass and fail. Do not block the submission on this.
   - _Requirements: 13.1–13.3_
 
@@ -202,7 +202,7 @@
   - _Requirements: 4.5, 14.1–14.3_
 
 - [ ] 16. Demo and submission
-  - [ ] 16.1 Script the demo: Impossible Model (BL-1 fails or crawls, then Molt runs), Live Squeeze (8 → 6 → 4 GB mid-conversation), quick quality check. Open with the coding task, not a graph.
+  - [ ] 16.1 Script the demo: Impossible Model (BL-1 fails or crawls, then MaltOE runs), Live Squeeze (8 → 6 → 4 GB mid-conversation), quick quality check. Open with the coding task, not a graph.
   - [ ] 16.2 Record the video, under 3 minutes.
   - [ ] 16.3 Final compliance check: public repo, `.kiro/` committed, video link, submission before December 4, 2026, 2:00 PM PT.
   - _Requirements: 15.1–15.4_

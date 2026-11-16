@@ -2,13 +2,13 @@
 inclusion: always
 ---
 
-# Product: Molt (codename ELASTIC)
+# Product: MaltOE (codename ELASTIC)
 
-Kiroween 2026 entry, Resurrection category. The spec is in `.kiro/specs/molt/`. The source of truth is `docs/elastic-kiroween-handoff.md`.
+Kiroween 2026 entry, Resurrection category. The spec is in `.kiro/specs/maltoe/`. The source of truth is `docs/elastic-kiroween-handoff.md`.
 
 ## What it is
 
-Molt is a local inference runtime for one Mixture-of-Experts model (Qwen3-30B-A3B, pending the Feasibility Round). It keeps a conversation running on an 8 GB consumer GPU when the model does not fit in VRAM. It does this by changing two things during a live session:
+MaltOE is a local inference runtime for one Mixture-of-Experts model (Qwen3-30B-A3B, pending the Feasibility Round). It keeps a conversation running on an 8 GB consumer GPU when the model does not fit in VRAM. It does this by changing two things during a live session:
 
 - **Width ("skin shedding").** Each expert is stored as 3 importance-ordered chunks. Running fewer chunks runs a narrower expert. Chunk 0 is mandatory work, and chunks 1–2 are optional work, following Imprecise Computation (Liu et al., 1991).
 - **Residency.** Expert chunks are pages across VRAM, RAM, and SSD. A working-set policy keeps recently used experts in VRAM, following the Working Set Model (Denning, 1968).
@@ -19,7 +19,7 @@ People running local LLMs on Windows PCs with roughly 6–12 GB of VRAM: local A
 
 ## The claim, and only this claim
 
-Molt's contribution is a controller that changes expert width and expert residency together **during a live session when the VRAM budget changes**. A user-chosen objective (Speed, Balanced, Quality) steers it, and it schedules width as mandatory and optional work. Output quality is a controlled variable.
+MaltOE's contribution is a controller that changes expert width and expert residency together **during a live session when the VRAM budget changes**. A user-chosen objective (Speed, Balanced, Quality) steers it, and it schedules width as mandatory and optional work. Output quality is a controlled variable.
 
 Not claimed:
 - Working-set paging for MoE. That is WiSP (Nokia, arXiv 2606.21868), which also has a live residency controller.
@@ -40,8 +40,8 @@ Stretch: AMD RX 6650 XT via Vulkan; DeepSeek V4.1 Flash as a closing beat only.
 
 The demo is under 3 minutes. It opens with a coding task, not a graph.
 
-1. **Impossible Model:** the stock setup fails or crawls on the laptop, then Molt runs the same model and prompt.
-2. **Live Squeeze:** the budget drops 8 → 6 → 4 GB mid-conversation, and Molt narrows, evicts, and keeps talking.
+1. **Impossible Model:** the stock setup fails or crawls on the laptop, then MaltOE runs the same model and prompt.
+2. **Live Squeeze:** the budget drops 8 → 6 → 4 GB mid-conversation, and MaltOE narrows, evicts, and keeps talking.
 3. **Quality check:** the output is still useful.
 
 The dashboard (VRAM gauge, expert heatmap, skin indicator, tok/s) is the star of the demo.

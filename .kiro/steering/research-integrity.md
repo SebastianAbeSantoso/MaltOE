@@ -4,7 +4,7 @@ inclusion: always
 
 # Research Integrity Rules
 
-Molt is judged partly on honesty about prior art. These rules apply to code comments, docs, the README, the dashboard text, and the demo script.
+MaltOE is judged partly on honesty about prior art. These rules apply to code comments, docs, the README, the dashboard text, and the demo script.
 
 ## Numbers
 
@@ -21,7 +21,7 @@ Molt is judged partly on honesty about prior art. These rules apply to code comm
 ## Claims
 
 - State the novelty claim exactly as in `product.md`, or as narrowed by `docs/feasibility-report.md`.
-- Always cite WiSP for working-set MoE paging and CRISP for importance-ordered widths with joint scheduling. Never imply Molt introduced either.
+- Always cite WiSP for working-set MoE paging and CRISP for importance-ordered widths with joint scheduling. Never imply MaltOE introduced either.
 - If configuration D does not beat B or C, say so plainly and do not claim the joint advantage.
 - Mark anything not verified from a primary source as *unverified*, and say how it will be checked.
 

@@ -21,7 +21,7 @@ DEFAULT_TIMEOUT_S = 20
 # exit(0) at the top level) ends with return code 0 without ever running them, so the return code
 # alone cannot be trusted. The sentinel is only printed when check() has run to the end, and each
 # run adds a random suffix so a response cannot print it itself.
-PASS_SENTINEL = "MOLT-HUMANEVAL-CHECK-PASSED"
+PASS_SENTINEL = "MALTOE-HUMANEVAL-CHECK-PASSED"
 
 
 def extract_code(response: str) -> str:

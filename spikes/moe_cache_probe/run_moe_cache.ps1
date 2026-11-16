@@ -5,7 +5,7 @@
 .DESCRIPTION
   At the pinned commit, llama.cpp already has --moe-cache-mib: a VRAM cache for experts that live in
   host memory (-ncmoe). It uploads only the experts a token routes to, and keeps the frequently and
-  recently used ones on the GPU. Molt would build on it, so before building anything we measure:
+  recently used ones on the GPU. MaltOE would build on it, so before building anything we measure:
 
     * static placement, no cache:        -ncmoe N                       (the stock baseline, BL-2)
     * cache of increasing size:          -ncmoe 48 --moe-cache-mib M    (all experts on the host)

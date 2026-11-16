@@ -1,6 +1,6 @@
 // Task 1.8 (gate G4): hold N GiB of GPU memory so other programs feel real pressure.
 //
-// This is the seed of molt-ballast --vram (Task 9). It answers, on Windows with WDDM:
+// This is the seed of maltoe-ballast --vram (Task 9). It answers, on Windows with WDDM:
 //   * can a process pin a chosen amount of dedicated VRAM, and does the driver report it as used?
 //   * if the request exceeds free VRAM, does cudaMalloc fail, or does the driver quietly spill into
 //     shared system memory ("CUDA - Sysmem Fallback Policy")?
