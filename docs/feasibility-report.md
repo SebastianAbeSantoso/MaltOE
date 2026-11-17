@@ -206,7 +206,7 @@ The first run's prefill figure for the fused variant (9.6 ms) was an artifact of
 - **Configuration A in the 2x2.** "Full" must say whether it is the stock fused expert or the chunked layout at k = C. They differ by the price above. Comparing MaltOE's chunked full width against stock llama.cpp charges MaltOE for the chunking; comparing against chunked full width isolates the controller. The report should show both.
 - **Reducing the price** (none attempted): merge gate and up into one tensor per chunk (llama.cpp already has a merged `gate_up` path), quantize the input once per layer, or add one op that handles k chunks in a single launch.
 
-### 6.6b Avoiding the chunk price: prefix views (CPU result; CUDA pending)
+### 6.6b Avoiding the chunk price: prefix views
 
 The price in 6.6a comes from running one expert as several smaller ones. CRISP does not do that: it stores each expert once, reordered by importance, so that "a width-k execution simply accesses the first k neurons" (CRISP, section on neuron reordering). In ggml terms a width-k expert is a *view* of the one fused tensor: for gate and up, the first k x 256 rows of each expert; for down, the first k x 256 entries of every row, with the original row stride. That is one matmul per projection at every width, the same kernel count as the stock expert, only smaller shapes. design.md ruled this out because "kernels do not support truncated quantized rows in general"; that was an untested assumption.
 
@@ -217,9 +217,22 @@ The price in 6.6a comes from running one expert as several smaller ones. CRISP d
 | chunked | 0.44x | 0.88x | 1.32x |
 | prefix view | 0.48x | 0.78x | 1.04x |
 
-So on CPU the price at full width disappears (1.04x, within noise of the 1.00x it should be) and narrower widths still cost proportionally less. **This says nothing about CUDA yet.** The CUDA kernels may reject or mishandle a view whose row stride differs from its row size; `--views` on the laptop answers that, and a rejection would be an assertion message to paste back.
+So on CPU the price at full width disappears (1.04x, within noise of the 1.00x it should be) and narrower widths still cost proportionally less.
 
-Two limits that stay even if CUDA accepts it:
+**CUDA result (RTX 4060 Laptop GPU, 128 experts, top-8, q4_K, run by the builder 2026-11-17).** The CUDA backend accepts the views: they match the chunked layout to 8.6e-8 to 1.3e-7 and the f32 prefix reference to the usual 1.2e-2, all PASS, in decode and prefill. Timing, as multiples of the stock fused expert:
+
+| | prefill, 512 tokens (spread 0% to 1%) | decode, 1 token (spread up to 33%, flagged as noisy) |
+| --- | ---: | ---: |
+| chunked k = 1 / 2 / 3 | 0.40x / 0.95x / 1.49x | 0.95x / 1.76x / 2.61x |
+| prefix view k = 1 / 2 / 3 | **0.44x / 0.76x / 1.08x** | 1.26x / 1.40x / 1.71x |
+
+- **Prefill: views remove most of the price.** Full width falls from 1.49x to 1.08x of stock, and two-thirds width from 0.95x to 0.76x, so two-thirds width is now cheaper than the stock expert. One-third width costs about the same either way.
+- **Decode: this spike cannot settle it.** The stock expert's time was stable between runs (0.0725 and 0.0712 ms), but the other variants moved a lot: chunked full width was 1.97x of stock yesterday and 2.61x today. Each call is 0.07 to 0.19 ms, which is mostly launch cost, and the spike runs without CUDA graphs, which llama.cpp uses for single-token decode.
+- **One result I cannot explain.** The full-width view has the same shape and data as the stock tensor and goes through the same `mul_mat_id` dispatch, yet took 1.71x as long in decode. I read the CUDA dispatch and its gate/up/activation fusion check and found no condition that treats a view differently. Finding the cause needs a profiler run (Nsight Systems) or the real engine, not more guessing.
+
+**Conclusion for the design:** prefix views are the better layout for compute in prefill, measured. For decode, the deciding measurement is Task 6.8 in the real engine with CUDA graphs on, against A-stock.
+
+Two limits that stay now that CUDA accepts it:
 
 - **Paging.** For down, a width-k prefix is a piece of every row, not one contiguous block. Copying a width-k slice over PCIe as 2,048 short pieces would be slow. A layout that is contiguous for transfer (chunk-major, as in the package) and a layout that is a prefix view for compute (expert-major) are different. One way to reconcile them is to upload each chunk contiguously and scatter it into the expert-major slot on the GPU, which runs at VRAM speed. That is a design idea, not tested.
 - **Quality is a separate question.** Nothing here says a width-reduced Qwen3-30B-A3B stays useful. That is gate G3 (Step D).
