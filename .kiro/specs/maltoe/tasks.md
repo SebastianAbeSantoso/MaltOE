@@ -12,7 +12,7 @@
 
 - [x] P1. Request the Kiroween Kiro credits before December 1, 2026, 12:00 PM PT (December 2, 04:00 WITA). _Requirements: 15.5_ (done; confirmed by the builder 2026-11-16)
 - [x] P2. Make the GitHub repo `SebastianAbeSantoso/MaltOE` public, or confirm it will be public before submission. Confirm `.kiro/` is committed and not in `.gitignore`. _Requirements: 15.1_ (done 2026-11-17: GitHub API reports `visibility: public`; `.kiro/` hooks, specs and steering are tracked on `main` and on the open branches; `.gitignore` has no `.kiro` entry and `git check-ignore` matches nothing. `main` still holds the spec under `.kiro/specs/molt/` until PRs #2–#4 are merged.)
-- [~] P3. Re-check the official Kiroween 2026 rules on Devpost. Record any difference from the handoff dates in `docs/kiroween-rules.md`. _Requirements: 15.4, 15.6_ (partly done: dates match, but Devpost blocks automated reads, so the builder must confirm the items listed in `docs/kiroween-rules.md` in a browser)
+- [x] P3. Re-check the official Kiroween 2026 rules on Devpost. Record any difference from the handoff dates in `docs/kiroween-rules.md`. _Requirements: 15.4, 15.6_ (done 2026-11-17 from the Devpost overview page pasted by the builder: no date differences. New submission rules not in Req 15 are listed in `docs/kiroween-rules.md`. The builder still confirms entrant eligibility on the Official Rules tab.)
 
 ## Tasks
 
