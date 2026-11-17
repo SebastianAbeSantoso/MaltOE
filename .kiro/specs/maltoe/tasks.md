@@ -81,7 +81,8 @@
     - Only if G2 failed: assess how width chunks would fit Edge0's slot design and its Recover-LoRA adapters, and estimate the effort.
     - _Requirements: 1.3, 2.1_
 
-  - [ ] 1.7b Read `src/llama-moe-cache.cpp` end to end and register one chunked layer with the cache, to settle whether chunks can be cached as extra logical layers (report section 6.5).
+  - [x] 1.7b Read `src/llama-moe-cache.cpp` end to end and register one chunked layer with the cache, to settle whether chunks can be cached as extra logical layers (report section 6.5). Done 2026-11-17: chunks fit as extra experts ("pages") with almost no cache change, not as extra layers; remaining gaps are resize, live counters, and the working-set policy (report 6.6e).
+  - [ ] 1.7c [HW-L] Run `chunked_moe --pages` on CUDA (decode and prefill) to see whether the pages layout removes the chunking price (report 6.6e).
   - [ ] 1.10 Write the Feasibility Report and recommend a route
     - Give pass or fail per gate, with evidence. Name one route and one model. State the chosen engine (A or B) and why. Give the final novelty claim. List open risks.
     - **Checkpoint:** the builder approves the route before Task 2.

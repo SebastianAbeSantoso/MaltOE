@@ -111,6 +111,13 @@ This builds one Qwen3-30B-A3B MoE layer (2048 x 768, 128 experts, top-8). It che
 
 If the CUDA backend rejects a view, the program stops with an assertion message. Paste it back; that is a result too.
 
+To test the "pages" layout (each chunk of each expert stored as its own small expert, one `mul_mat_id` per projection over 8×k page ids; report 6.6e), add `--pages`:
+
+```powershell
+.\build\chunked_moe.exe --backend CUDA0 --type q4_K --n-expert 128 --n-used 8 --n-tokens 1   --iters 200 --views --pages
+.\build\chunked_moe.exe --backend CUDA0 --type q4_K --n-expert 128 --n-used 8 --n-tokens 512 --iters 20  --views --pages
+```
+
 The last command tries four chunks (192 neurons each), which only works with 32-element block types such as q8_0.
 
 Paste back: all three outputs in full.

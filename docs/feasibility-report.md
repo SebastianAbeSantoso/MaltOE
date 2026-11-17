@@ -291,6 +291,37 @@ Same laptop, model, and prompt as 6.6c, now with `-lv 4` so the cache's statisti
 - **Residency alone does not beat static offload on this laptop.** A plain cache, tuned, roughly ties it. Any gain MaltOE shows here must come from width shrinking what moves, which is the joint-controller claim.
 - **BL-2b is run with `--moe-cache-cpu-share 0.95`**, the best of the three shares tried, so that the stock cache is compared at its best.
 
+### 6.6e Task 1.7b: how width chunks fit llama.cpp's MoE cache (code read, 2026-11-17)
+
+I read `src/llama-moe-cache.cpp` (984 lines) at the pinned commit end to end.
+
+**How it works.** The cache keeps, per group of layers with the same expert tensor layout, one VRAM "bank" per expert tensor (gate, up, down, or merged gate_up and down) with room for `n_slots` experts. A slot holds one expert's slice of each tensor: index `e` along the expert axis (`ne[2]`), `nb[2]` bytes, contiguous in the host tensor. After routing, the graph does a `get_rows` of a per-layer slot map (a host tensor), which makes the scheduler start a new split there and call the cache's copy callback. The callback reads the selected expert ids from the GPU (one synchronisation per MoE layer), plans hits and misses, uploads each missing expert as one contiguous copy, and writes the slot map, which then serves as the expert ids of the `mul_mat_id`. The policy is an LRU per frequency class over a combined recency-and-frequency score with a 128-token half-life. Layers are discovered from the model's `ffn_*_exps` tensors in host memory, and all per-layer tables are sized by the number of model layers.
+
+**Chunks as extra layers (the task's original idea) would mean deep changes:** every per-layer table (clock, slot map, trace) is indexed by the model's layer number, and the callback assumes one lookup per model layer.
+
+**Chunks as extra experts fit with almost no change.** Store each projection of a layer as one tensor of `C × n_expert` small experts ("pages"), with page `p = j·n_expert + e` holding chunk `j` of expert `e` (256 neurons): gate and up `[n_embd, 256, 384]`, down `[256, n_embd, 384]`. To the cache this is an ordinary layer with 384 experts. A width-k run turns the 8 routed expert ids into the `8·k` page ids of chunks `j < k` (one `get_rows` on a small I32 table, the op the cache itself already relies on), so only those pages are looked up, cached, and uploaded. Because the router weight of an expert is the same for all its chunks, one `mul_mat_id` per projection over the `8·k` page ids, followed by a sum over each expert's `k` partial outputs, computes the layer exactly.
+
+This answers three open points at once:
+
+1. **Kernel count:** one `mul_mat_id` per projection at every width, as in the stock expert, instead of the chunk loop's `k` (the suspected source of the full-width price in 6.6a).
+2. **Paging:** each page is one contiguous block per tensor, so a miss is one copy. Prefix views (6.6b) could not offer that for the down projection.
+3. **Cache reuse:** the cache needs no change to page by chunk.
+
+**Measured so far, sandbox CPU only** (`chunked_moe --pages`): the pages layout equals the chunked layout exactly (difference 0 at every width, f32 and q4_K, 1 and 32 tokens), clean under AddressSanitizer, and its time scales with width like the others. CPU timing cannot show a launch-count saving; the CUDA run on the laptop decides it.
+
+**What the cache still lacks for MaltOE (unchanged by this):**
+
+| Needed | State at the pin | Size of the change (my judgement, not measured) |
+| --- | --- | --- |
+| Pages smaller than an expert | Solved by the pages layout | Loader and graph changes only |
+| `n_expert_used` for sizing | Taken from the model (8); a width-k run looks up `8·k` pages per token | Small: pass the page count where the cache sizes zero slots and the minimum slot count |
+| Resize while running | Not supported: banks and `n_slots` are fixed when the context is created | Largest item. Simplest version: recreate the cache at a new size at a Safe Boundary and re-upload the working set |
+| Hit, miss and byte counters while running | Logged only at shutdown | Small: expose the existing counters |
+| Working-set policy and overflow signal | Recency-and-frequency LRU, no signal | Moderate: a working-set victim choice inside the self-contained LRU struct, plus a counter |
+| One GPU synchronisation per MoE layer | In the callback (open upstream PR #32076, "run everything without syncs") | Not MaltOE's to fix; it applies to every cache baseline equally |
+
+**Proposed design change (not applied, for your decision):** store the Elastic Package as pages (chunk tensors concatenated along the expert axis) instead of separate `.c{j}` tensors per chunk, and compute width k as one `mul_mat_id` over `8·k` page ids. Decide after the CUDA `--pages` run.
+
 ### 6.5 Smallest engine change for Route A (Req 1.7)
 
 llama.cpp has dynamic residency (VRAM to host) but not variable-width execution, so the change is to add width on top and extend the cache:
