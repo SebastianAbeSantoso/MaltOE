@@ -148,7 +148,8 @@ Each run uses ballast sizes 0, 1, 2, 3, and 4 GiB. With no ballast the benchmark
 RAM filler, on **both** machines (on the 32 GB PC this is what forces the SSD tier into use):
 
 ```powershell
-uv run --with psutil python ram_probe.py 12 --seconds 20
+uv run --with psutil python ram_probe.py 3 --seconds 20     # laptop (16 GB, only about 5 GB free): hold 3 GiB
+uv run --with psutil python ram_probe.py 12 --seconds 20    # PC (32 GB): hold 12 GiB
 ```
 
 Paste back: the `ballast_probe` output, both `run_g4` tables, the driver version, and the `ram_probe` output from each machine.
