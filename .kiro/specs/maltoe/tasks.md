@@ -62,7 +62,7 @@
     - _Requirements: 1.4, 1.7_
 
   - [x] 1.6b Run `chunked_moe --views` on CUDA to see whether width k can be a prefix view of the fused tensor with no chunk loop. Done 2026-11-17: correct on CUDA; prefill 0.44x / 0.76x / 1.08x of stock at k = 1 / 2 / 3; decode not settled by the spike (report 6.6b).
-  - [ ] 1.7 G2b Engine spike: per-MoE-layer host split for slot remapping [HW-L] (**changed from plan**: llama.cpp at the pin already has `--moe-cache-mib`, so Step B measures that instead of a hand-written split; see report section 6)
+  - [x] 1.7 G2b Engine spike: per-MoE-layer host split for slot remapping [HW-L] (**changed from plan**: llama.cpp at the pin already has `--moe-cache-mib`, so Step B measures that instead of a hand-written split; see report section 6) Done 2026-11-17: hit rate 66% with a 3 GB cache; without a CPU share the cache uploads about 350 MB per token and decodes at 5 tok/s; with share 0.95 it nearly ties static offload (report 6.6c, 6.6d).
     - Extend the spike. After top-K, force a CPU op that reads the expert ids, remaps them to slot ids in a small slot pool, and copies one missing page per layer from pinned host memory. Run it for 48 layers.
     - Measure the per-token overhead of the 48 splits and syncs with no misses, and the cost per missed page, at k = 1..3.
     - Compare with stock `--n-cpu-moe` decode tok/s on the real model at the same budget.
@@ -106,7 +106,7 @@
 - [ ] 4. Baselines [HW-L, then HW-PC for BL-2 and BL-3 only]
   - [ ] 4.1 Write `StockLlamaCppAdapter` and `Edge0Adapter`. Both start a server process, stream generation, and expose perplexity where the engine supports it.
   - [ ] 4.2 Write the harness runner: config matrix (4/6/8 GB VRAM budget via the VRAM probe from 1.8, 2K/4K/8K context, RAM Budget only on the PC), per-run metrics, process I/O counters for SSD bytes, peak VRAM/RAM, minimum available RAM, OOM detection. Output CSV and JSON.
-  - [ ] 4.3 Run BL-1 (full offload where it fits), BL-2 (`--n-cpu-moe` with the smallest N that fits), BL-2b (`--n-cpu-moe` plus `--moe-cache-mib`, cache sized from the Step B results), and BL-3 (Edge0, reference point) on the laptop. Label BL-2 and BL-2b with the CPU.
+  - [ ] 4.3 Run BL-1 (full offload where it fits), BL-2 (`--n-cpu-moe` with the smallest N that fits), BL-2b (`--n-cpu-moe` plus `--moe-cache-mib` with `--moe-cache-cpu-share 0.95`, the best share found in Step B2; cache sized to each budget), and BL-3 (Edge0, reference point) on the laptop. Label BL-2 and BL-2b with the CPU.
   - [ ] 4.4 Write `docs/baseline-report.md`: performance envelope, OOM cases, the statement that 4/6 GB budgets simulate memory only, and machine manifests.
   - [ ] 4.5 **Checkpoint:** the builder sets the thresholds the later tasks need: the usefulness bar for Req 11.3 and `D_bal` for the Balanced objective. Record them in the Baseline Report.
   - [ ] 4.6 Tail-skip baseline (BL-4): choose how to run it, either an existing engine's mode (Strata tail-skip, `tandem.cpp --fast`) after checking its licence and that it runs this model, or a small llama.cpp change that computes only the top `m` routed experts. Run it at `m` matching each width's active expert parameters, on the frozen evaluation set.

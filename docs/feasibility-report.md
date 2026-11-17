@@ -265,6 +265,32 @@ Disk read is the sum of one-second samples of the whole disk, so it is approxima
 - **Approved change 2 still stands but is now riskier.** MaltOE needs a VRAM residency mechanism for width-aware paging either way, but the upstream cache, as configured here, lost to static offload. Before building on it, the next probe should try `--moe-cache-cpu-share` (llama.cpp ships a tuner, `scripts/moe-cache-tune.py`) and record hit rates.
 - **A point in width's favour, to be measured, not claimed:** when the model streams from disk, a narrower width reads fewer bytes per expert, so it may help this laptop more through disk and RAM than through GPU compute.
 
+### 6.6d Step B2: the cache with a CPU share, against static offload at the same VRAM (2026-11-17)
+
+Same laptop, model, and prompt as 6.6c, now with `-lv 4` so the cache's statistics are logged. All rows use about 4.4 GB of GPU memory. "CPU share" is `--moe-cache-cpu-share`: the share of cache misses the CPU computes from host memory instead of uploading to the GPU. Two runs each; the cache statistics were identical in both runs (greedy decoding gives the same routing).
+
+| configuration | decode tok/s (run 1 / 2) | prompt tok/s | cache hit rate | misses computed on CPU | uploaded to GPU |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| static `-ncmoe 40` | 12.8 / 13.4 | 11.8 / 10.4 | | | |
+| 3 GB cache, CPU share 0 | 5.1 / 5.1 | 16.0 / 15.7 | 65.7% | 0 | 45,981 MiB |
+| 3 GB cache, CPU share 0.5 | 7.8 / 7.9 | 17.9 / 15.7 | 64.1% | 8,195 | 25,554 MiB |
+| 3 GB cache, CPU share 0.95 | 11.9 / 12.3 | 16.6 / 15.7 | 58.7% | 18,058 | 5,701 MiB |
+
+(The hit-rate and upload figures are for decode-sized batches, up to 8 tokens, as llama.cpp reports them.)
+
+**What it shows:**
+
+1. **Routing reuses experts.** A 3 GB cache holds roughly 1,100 of the model's 6,144 experts, about 18% (estimate: 3,072 MiB divided by about 2.7 MB per Q4_K expert from the config), and it served about 66% of expert uses during decode. That reuse is what a working-set policy relies on. It was measured on one prompt of 128 generated tokens, so how far it holds across conversations is open.
+2. **Without a CPU share, the cache is limited by uploads.** It uploaded about 45 GB to the GPU for 128 generated tokens, roughly 350 MB per token, and decoded at 5 tok/s. Every miss copies a whole expert over PCIe from memory that is not pinned (the model is memory-mapped and larger than RAM).
+3. **With a 0.95 CPU share, the cache nearly matches static offload** (12.1 against 13.1 tok/s on average), because uploads fall to 5.7 GB. Static offload is still slightly faster on this laptop, whose strong CPU suits computing experts in RAM.
+4. **Prompt processing is faster through the cache** at every share (about 16 tok/s against 11).
+
+**What it means for MaltOE (estimates to test, not results):**
+
+- **Bytes per miss is the lever, and width is how MaltOE moves it.** A miss at one-third width would upload about one third of the bytes. At the share-0 miss rate, that is roughly 120 MB per token instead of 350 MB. Whether speed follows the bytes depends on PCIe and disk behaviour that this run did not isolate. The 2x2 (configurations C and D) measures it.
+- **Residency alone does not beat static offload on this laptop.** A plain cache, tuned, roughly ties it. Any gain MaltOE shows here must come from width shrinking what moves, which is the joint-controller claim.
+- **BL-2b is run with `--moe-cache-cpu-share 0.95`**, the best of the three shares tried, so that the stock cache is compared at its best.
+
 ### 6.5 Smallest engine change for Route A (Req 1.7)
 
 llama.cpp has dynamic residency (VRAM to host) but not variable-width execution, so the change is to add width on top and extend the cache:
@@ -283,7 +309,7 @@ I am not giving an hours estimate; the real cost is item 3, and a short spike (r
 | --- | --- | --- |
 | Chunked experts on CUDA: correctness | A | **Passed** on the RTX 4060 Laptop GPU (see 6.6a) |
 | Chunked experts on CUDA: ms per layer, k = 1..3 vs fused | A | **Measured** (see 6.6a): 1.97x decode and 1.48x prefill at full width; narrower widths scale down as expected |
-| Upstream cache: decode tok/s, hit rate, bytes uploaded, disk read, for static `-ncmoe` vs cache sizes | B | **First run done** (see 6.6c); hit rates missing, rerun of the parse pending |
+| Upstream cache: decode tok/s, hit rate, bytes uploaded, disk read, for static `-ncmoe` vs cache sizes | B | **Done** (see 6.6c and 6.6d) |
 
 ## 7. G3: width quality (pending)
 
