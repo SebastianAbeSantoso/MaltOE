@@ -271,7 +271,7 @@ Five problems per set means each difference of one problem is 20 percentage poin
 
 **Provisional route (valid unless G3 or G4 fail): Route A.** Convert Qwen3-30B-A3B without training (importance-ordered chunks), on a llama.cpp fork at the pinned commit, with `C = 3`.
 
-Proposed changes for your approval (none applied yet):
+**Approved by the builder on 2026-11-16, all of the following, and applied to requirements.md, design.md, and tasks.md:**
 
 1. **Baselines:** add `llama.cpp --n-cpu-moe + --moe-cache-mib` (BL-2b) to Req 2.1 and Req 10.8, because it is the strongest stock setup.
 2. **Pager design:** replace "write an expert pager" with "extend llama.cpp's MoE cache" (chunk-aware pages, runtime resize, counters, working-set signal). Tasks 7.1 to 7.8 change accordingly.
@@ -279,9 +279,12 @@ Proposed changes for your approval (none applied yet):
 4. **Add a task 1.7b:** a short spike that reads `llama-moe-cache.cpp` end to end and registers one chunked layer, to settle the main uncertainty in 6.5.
 5. **Importance run on Q4_K_M** (finding 3).
 6. **Fallbacks:** if G3 fails at k = 1, try `C = 4` (q8_0-type chunks only) before anything else; MoSE only if code and checkpoints appear; Route B (Edge0) only if G2 on CUDA fails.
+7. **Tail-skip baseline (BL-4)** (from the survey in 3.2b): compare width reduction with skipping the lowest-ranked routed experts at matching compute (Req 10.9, Task 4.6).
+8. **Configuration A in two forms,** A-stock and A-chunked (Req 10.10), because they run at different speeds (6.6a).
+9. **Speed objective re-check** in the real engine (Task 6.8).
 
 **To discuss with the builder (not yet decided): demo impact.** A 30B-class MoE running on a cheap consumer GPU is already shown by others (section 3.2b; for example Qwen3.6-35B-A3B at 68 to 78 tok/s on a 6 GB laptop GPU, per that project's README), and stock `llama.cpp --n-cpu-moe` does not "crawl below 1 tok/s". Demo beat 1 as written in the handoff will not surprise a judge who knows the field. The live squeeze with a controlled quality trade (beat 2) is the part nobody else shows. Whatever replaces beat 1 should be chosen after the Step B and Step D numbers exist, so it rests on measured results.
 
 Candidate from the builder (2026-11-16): open with the asterisk. "An 8 GB GPU can run DeepSeek V4.1*", then reveal the footnote ("* at a uselessly low tokens per second"), then "well, I won't claim that", and turn to what MaltOE does claim. It makes the honesty rules part of the pitch. Conditions: the footnote number must be a real measurement from Task 15.2 on the test laptop, or the slide must say plainly that it is a joke figure. V4.1 needs hundreds of GB of disk, and none of the handoff's V4.1 figures are verified yet.
 
-Open items: the CRISP source code (not released), WiSP's behaviour under an external VRAM change (unverified), and whether the pinned commit builds on Windows with CUDA.
+Open items: the CRISP source code (not released) and WiSP's behaviour under an external VRAM change (unverified). The pinned commit builds on Windows with CUDA 12.9 and MSVC 19.39 (verified on the laptop, 2026-11-16).

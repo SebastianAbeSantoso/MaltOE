@@ -10,7 +10,7 @@
 
 ## Pre-flight (admin, not coding; do early)
 
-- [ ] P1. Request the Kiroween Kiro credits before December 1, 2026, 12:00 PM PT (December 2, 04:00 WITA). _Requirements: 15.5_
+- [x] P1. Request the Kiroween Kiro credits before December 1, 2026, 12:00 PM PT (December 2, 04:00 WITA). _Requirements: 15.5_ (done; confirmed by the builder 2026-11-16)
 - [ ] P2. Make the GitHub repo `SebastianAbeSantoso/MaltOE` public, or confirm it will be public before submission. Confirm `.kiro/` is committed and not in `.gitignore`. _Requirements: 15.1_
 - [~] P3. Re-check the official Kiroween 2026 rules on Devpost. Record any difference from the handoff dates in `docs/kiroween-rules.md`. _Requirements: 15.4, 15.6_ (partly done: dates match, but Devpost blocks automated reads, so the builder must confirm the items listed in `docs/kiroween-rules.md` in a browser)
 
@@ -49,7 +49,7 @@
     - Is `llama_memory_seq_rm` (or its equivalent at this commit) available for removing a partial KV position?
     - _Requirements: 1.4, 1.7_
 
-  - [ ] 1.5 G3 Width quality, emulated without engine changes [HW-L] (scripts ready: `spikes/width_emulation/`, Step D)
+  - [ ] 1.5 G3 Width quality, emulated without engine changes [HW-L] (scripts ready: `spikes/width_emulation/`, Step D) Importance statistics come from the Q4_K_M file (approved change 5).
     - Write `spikes/width_emulation.py` using `gguf-py`. It loads a Q8_0 GGUF, computes importance per expert neuron from the imatrix and down-projection column norms, and permutes neurons by importance. For each `k ∈ {1, 2}` it zeroes the gate and up rows of neurons beyond `k·256`, which exactly emulates width `k` because `silu(0)·x = 0`. It writes one GGUF per `k`.
     - Control: also write a `k = 1` model that keeps a *random* 256 neurons instead of the top 256. This shows whether importance ordering matters.
     - The builder runs stock `llama-perplexity` and a 5-coding + 5-reasoning smoke subset of the eval set at k = 3, 2, 1, and the random k = 1 control.
@@ -81,7 +81,7 @@
     - Only if G2 failed: assess how width chunks would fit Edge0's slot design and its Recover-LoRA adapters, and estimate the effort.
     - _Requirements: 1.3, 2.1_
 
-  - [ ] 1.7b *(proposed, needs approval)* Read `src/llama-moe-cache.cpp` end to end and register one chunked layer with the cache, to settle whether chunks can be cached as extra logical layers (report section 6.5).
+  - [ ] 1.7b Read `src/llama-moe-cache.cpp` end to end and register one chunked layer with the cache, to settle whether chunks can be cached as extra logical layers (report section 6.5).
   - [ ] 1.10 Write the Feasibility Report and recommend a route
     - Give pass or fail per gate, with evidence. Name one route and one model. State the chosen engine (A or B) and why. Give the final novelty claim. List open risks.
     - **Checkpoint:** the builder approves the route before Task 2.
@@ -106,8 +106,9 @@
 - [ ] 4. Baselines [HW-L, then HW-PC for BL-2 and BL-3 only]
   - [ ] 4.1 Write `StockLlamaCppAdapter` and `Edge0Adapter`. Both start a server process, stream generation, and expose perplexity where the engine supports it.
   - [ ] 4.2 Write the harness runner: config matrix (4/6/8 GB VRAM budget via the VRAM probe from 1.8, 2K/4K/8K context, RAM Budget only on the PC), per-run metrics, process I/O counters for SSD bytes, peak VRAM/RAM, minimum available RAM, OOM detection. Output CSV and JSON.
-  - [ ] 4.3 Run BL-1 (full offload where it fits), BL-2 (`--n-cpu-moe` with the smallest N that fits), and BL-3 (Edge0, reference point) on the laptop. Label BL-2 with the CPU.
+  - [ ] 4.3 Run BL-1 (full offload where it fits), BL-2 (`--n-cpu-moe` with the smallest N that fits), BL-2b (`--n-cpu-moe` plus `--moe-cache-mib`, cache sized from the Step B results), and BL-3 (Edge0, reference point) on the laptop. Label BL-2 and BL-2b with the CPU.
   - [ ] 4.4 Write `docs/baseline-report.md`: performance envelope, OOM cases, the statement that 4/6 GB budgets simulate memory only, and machine manifests.
+  - [ ] 4.6 Tail-skip baseline (BL-4): choose how to run it, either an existing engine's mode (Strata tail-skip, `tandem.cpp --fast`) after checking its licence and that it runs this model, or a small llama.cpp change that computes only the top `m` routed experts. Run it at `m` matching each width's active expert parameters, on the frozen evaluation set.
   - [ ] 4.5 **Checkpoint:** the builder sets the thresholds the later tasks need: the usefulness bar for Req 11.3 and `D_bal` for the Balanced objective. Record them in the Baseline Report.
   - _Requirements: 2.1–2.7, 10.8_
 
@@ -127,16 +128,17 @@
   - [ ] 6.5 Engine test: chunk-loop output equals the f32 prefix-width reference for k = 1..3, and k = 3 matches the original fused expert within quant tolerance (Property 10).
   - [ ] 6.6 Engine test: `k` changes only inside boundary-apply (Property 4).
   - [ ] 6.7 [HW-L] Check that full-width perplexity of the package matches the original model within noise, and run the perplexity smoke test at k = 1, 2.
+  - [ ] 6.8 [HW-L] In the real engine with CUDA graphs on, time each width against A-stock in decode and prefill. If `k = 2` is not faster than A-stock in decode, revise the Speed objective's rationale in design.md before the write-up (Task 1 checkpoint).
   - _Requirements: 4.4, 5.1, 5.2, 5.4, 5.5, 7.3_
 
-- [ ] 7. maltoe-engine: Expert Pager (enables configs C and D)
-  - [ ] 7.1 Per-layer VRAM slot pools with resize (shrink first). Page = `(L, e, j)`.
-  - [ ] 7.2 Slot lookup: a host op after top-K remaps expert ids to slot ids and issues demand loads for missing pages `j < k` only.
+- [ ] 7. maltoe-engine: residency through llama.cpp's MoE cache (enables configs C and D)
+  - [ ] 7.1 Extend llama.cpp's MoE cache to pages `(L, e, j)`: one slot per chunk, so a width-`k` run loads only chunks `j < k` (design: Expert Pager). Depends on the outcome of Task 1.7b.
+  - [ ] 7.2 Runtime resize of the cache's slot banks, shrinking first so peak memory never rises; upstream fixes the size when the context is created.
   - [ ] 7.3 Working-set tracker: per-layer ring buffer over `W` tokens, `|WS_L|` at several windows, `ws_overflow` signal.
   - [ ] 7.4 Eviction: non-working-set pages first (LRU), working-set pages only after `ws_overflow`. Count thrash events.
-  - [ ] 7.5 RAM cache (pinned host buffers) capped by RAM Budget, with working-set-then-LRU over `W_ram`.
-  - [ ] 7.6 SSD reader: unbuffered aligned reads from the package file (`FILE_FLAG_NO_BUFFERING` on Windows).
-  - [ ] 7.7 Per-tier counters: hits, misses, loads, evictions, bytes, miss stall time.
+  - [ ] 7.5 *(only if Steps B and C show it is needed)* MaltOE's own RAM cache of pinned host buffers, capped by the RAM Budget, with working-set-then-LRU over `W_ram`. In v1 the OS page cache is the RAM tier.
+  - [ ] 7.6 *(only if Steps B and C show it is needed)* Unbuffered aligned reads from the package file (`FILE_FLAG_NO_BUFFERING`). In v1 disk traffic is measured with OS counters.
+  - [ ] 7.7 Counters API: per-tier hits, misses, loads, evictions, bytes, and miss stall time, readable while running (upstream only logs them at shutdown).
   - [ ] 7.8 Prefetch toggle, off by default: next-layer router guess, lower priority than demand loads.
   - [ ] 7.9 OOM inside a step: abort the step, remove the partial KV position, emit `oom`, wait for a new config.
   - [ ] 7.10 Engine tests on CPU: eviction order (Property 3), working set kept while it fits (Property 2), at most `k` pages per miss (Property 9).
@@ -175,7 +177,7 @@
   - _Requirements: 8.1–8.6, 9.1–9.6_
 
 - [ ] 12. Evaluation: 2x2, baselines, squeeze [HW-L]
-  - [ ] 12.1 Add configs A–D to the harness runner (A: k = 3, residency off; B: adaptive width, residency off; C: k = 3, residency on; D: both).
+  - [ ] 12.1 Add configs A–D to the harness runner (A in two forms: A-stock, the unmodified fused expert, and A-chunked, `k = 3` with residency off; B: adaptive width, residency off; C: `k = 3`, residency on; D: both), plus BL-2b and the tail-skip baseline BL-4.
   - [ ] 12.2 Run the full matrix at 4/6/8 GB × 2K/4K/8K with the fixed eval set. Re-run the baselines at the same commit.
   - [ ] 12.3 Run prefetch on versus off for configs C and D.
   - [ ] 12.4 Run the squeeze scenario (8 → 6 → 4 → 8 GB) on a fixed conversation. Record survival, stall at each change, and tok/s and quality per phase.

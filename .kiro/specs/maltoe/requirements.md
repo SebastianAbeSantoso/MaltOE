@@ -78,7 +78,7 @@ These requirements apply throughout the spec and the write-up.
 
 #### Acceptance Criteria
 
-1. THE project SHALL run the chosen model on the RTX 4060 in these named baselines: (a) llama.cpp with full GPU offload where it fits, (b) llama.cpp with `--n-cpu-moe` static expert offload, and (c) Edge0-infer with its released model. Edge0 runs its own checkpoint, so its results SHALL be reported as a reference point and not as a same-model comparison.
+1. THE project SHALL run the chosen model on the RTX 4060 in these named baselines: (a) llama.cpp with full GPU offload where it fits, (b) llama.cpp with `--n-cpu-moe` static expert offload, (b2) llama.cpp with `--n-cpu-moe` plus its MoE expert cache `--moe-cache-mib`, the strongest stock setup, and (c) Edge0-infer with its released model. Edge0 runs its own checkpoint, so its results SHALL be reported as a reference point and not as a same-model comparison.
 2. THE baseline SHALL cover VRAM budgets of 4, 6, and 8 GB, context lengths of 2K, 4K, and 8K tokens, and chat, coding, and reasoning prompts.
 3. FOR EACH baseline run, THE project SHALL record TTFT, generation tok/s, prompt-processing tok/s, peak VRAM, peak system RAM, out-of-memory occurrence, and a quality score on the fixed evaluation set.
 4. THE Baseline Report SHALL state that 4 and 6 GB budgets simulate memory limits only and do not simulate the weaker compute of lower-tier GPUs.
@@ -196,7 +196,9 @@ These requirements apply throughout the spec and the write-up.
 5. THE harness SHALL output a performance envelope of quality against latency and memory, not only a ranking.
 6. THE harness SHALL report results that do not support the claim with the same prominence as results that do.
 7. THE fixed evaluation set SHALL be small, fast, and runnable offline, and SHALL consist of a perplexity measurement plus about 20 coding prompts and about 20 reasoning prompts. Design defines the exact contents.
-8. THE harness SHALL also run the named baselines from Requirement 2 (llama.cpp full offload, llama.cpp `--n-cpu-moe`, and Edge0-infer) on the same workload, and SHALL report Edge0 as a reference point on a different checkpoint.
+8. THE harness SHALL also run the named baselines from Requirement 2 (llama.cpp full offload, llama.cpp `--n-cpu-moe`, llama.cpp `--n-cpu-moe` with `--moe-cache-mib`, and Edge0-infer) on the same workload, and SHALL report Edge0 as a reference point on a different checkpoint.
+9. THE harness SHALL compare width reduction against expert tail-skip (computing only the highest-ranked routed experts of each token and skipping the rest), on the same model and workload, at the nearest matching number of active expert parameters per token, and SHALL show both in the same performance envelope. Tail-skip is a baseline only; MaltOE keeps top-K fixed (constraint above). IF width reduction does not give better quality than tail-skip at matching compute, THEN the write-up SHALL say so.
+10. THE harness SHALL report configuration A in two forms: A-stock, the unmodified fused expert, and A-chunked, the MaltOE package layout at full width, because the two run at different speeds (Feasibility Report 6.6a).
 
 ### Requirement 11: Success Criteria
 

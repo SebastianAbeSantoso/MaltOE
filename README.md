@@ -210,13 +210,15 @@ All results come from the evaluation run (Task 12) on the RTX 4060 laptop.
 
 ### Baselines
 
-The same workload also runs on standard setups. Edge0 runs its own checkpoint, so it is a reference point and not a same-model comparison.
+The same workload also runs on standard setups. Edge0 runs its own checkpoint, so it is a reference point and not a same-model comparison. Tail-skip is the existing way to trade quality for speed (other engines skip the lowest-ranked experts); narrower experts are only worth having if they beat it at the same compute, and the results will say whether they do. Configuration A is reported both as the stock expert and as MaltOE's chunked layout at full width, because the two run at different speeds.
 
 | Baseline | Setup | VRAM budgets | Results |
 | --- | --- | --- | --- |
 | BL-1 | llama.cpp, full GPU offload where it fits | 4 / 6 / 8 GB | TBD |
 | BL-2 | llama.cpp, `--n-cpu-moe` static expert offload | 4 / 6 / 8 GB | TBD |
+| BL-2b | llama.cpp, `--n-cpu-moe` plus its MoE expert cache (`--moe-cache-mib`) | 4 / 6 / 8 GB | TBD |
 | BL-3 | [Edge0](https://github.com/Edge0-AI/edge0) `edge0-infer` | 4 / 6 / 8 GB | TBD |
+| BL-4 | Tail-skip: the same model computing only its highest-ranked experts, at matching compute | 4 / 6 / 8 GB | TBD |
 
 ### How results are measured
 

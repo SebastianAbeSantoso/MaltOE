@@ -23,6 +23,11 @@ This design follows `requirements.md` and `docs/elastic-kiroween-handoff.md`. Ev
 | Prefetch | Off by default, toggle, measured | Round 2, decision 10 |
 | Budgets | VRAM filler and RAM filler processes, plus self-accounting inside MaltOE | Round 2, decisions 11 and 13 |
 | Process layout | C++ per-token code in the Engine fork; Python FastAPI for controller, harness, API; web dashboard over WebSocket | Round 2, decision 13 |
+| Residency mechanism | Extend llama.cpp's MoE expert cache (`--moe-cache-mib`) instead of writing a pager from scratch: add chunk-aware pages, runtime resize, counters, and a working-set signal | Task 1 checkpoint, 2026-11-16 (change 2) |
+| RAM and SSD tiers in v1 | The operating system's page cache through mmap; RAM Budget enforced by the RAM filler; bytes read measured with OS counters. MaltOE's own RAM cache and unbuffered SSD reader only if Steps B and C show the page cache cannot be controlled | Task 1 checkpoint (change 3) |
+| Baselines | BL-1, BL-2, BL-2b (`--n-cpu-moe` + `--moe-cache-mib`), BL-3, BL-4 (tail-skip); configuration A reported as A-stock and A-chunked | Task 1 checkpoint (changes 1 and 7) |
+| Importance statistics | From the Q4_K_M file; Q8_0 is larger than the laptop's RAM | Task 1 checkpoint (change 5) |
+| Fallback order | If width quality fails at `k = 1`: `C = 4` first (32-element block types only), then MoSE only if code and checkpoints appear; Edge0 (Route B) only if the CUDA engine path fails | Task 1 checkpoint (change 6) |
 
 ### Test machines (from the builder, 2026-11-11)
 
@@ -208,20 +213,21 @@ New code lives in `engine/maltoe/` in the MaltOE repo: the pager, the chunked-Mo
 | --- | --- |
 | Model loader | Recognise `maltoe.*` keys and chunk tensors for the `qwen3moe` arch |
 | Graph builder | Replace the fused MoE FFN with the chunk loop above, for `k` from the active config |
-| Expert source | In residency mode, the chunk tensors point at slot pools and the routed expert ids are remapped to slot ids |
+| Expert source | In residency mode, the experts are read through llama.cpp's MoE cache (`src/llama-moe-cache.cpp`), extended so that each chunk is a separate page |
 | Decode loop | Check for a pending config at each Safe Boundary |
 | Server | Add `/maltoe/config` (POST), `/maltoe/state` (GET), and `/maltoe/telemetry` (WebSocket) to the `llama-server` fork |
 
 #### Expert Pager (Req 6)
 
+**Approach (Task 1 checkpoint, change 2).** The pinned llama.cpp already has an experimental MoE expert cache, `llama_moe_cache` (`--moe-cache-mib`). It keeps experts of host-resident layers in device slots, keeps a slot map per layer in host memory, uploads only the experts a token routes to, and computes hits from the slots. MaltOE extends it rather than writing a pager. Upstream lacks four things MaltOE needs: pages smaller than a whole expert, resizing while running (the size is fixed when the context is created), a counters API (it only logs at shutdown), and a signal when the working set no longer fits. Task 1.7b checks whether chunks can be registered with the cache as extra logical layers; if not, the cache needs a deeper change and this section is revised.
+
 - **Page.** One chunk of one expert in one layer: `(L, e, j)`, holding the gate, up, and down slices. **Estimate:** at about 4.5 bits per weight, a page is about 0.9 MB. The full expert bank is about 18,400 pages, roughly 16 GB.
-- **VRAM slot pools.** Each layer has its own pool. A pool is three tensors (gate, up, down) of shape `[n_embd, S, slots_L]` / `[S, n_embd, slots_L]`. Per-layer pools make resizing possible: to shrink, free one layer's pool, allocate a smaller one, and reload that layer's working-set pages from RAM. Temporary extra memory is at most one layer's pool. This follows the fixed slots-per-layer design Edge0 documents.
-- **Slot lookup.** After the router's top-K runs for layer `L`, a small host-side op reads the expert ids. It maps each `(L, e, j<k)` to a slot, loads missing pages, and writes a remapped id tensor for `mul_mat_id`. This forces a graph split and a host sync per MoE layer. **This is the main performance risk.** The Task 1 spike measures it (Gate G2).
+- **VRAM slots.** Upstream's per-layer slot banks, keyed by page instead of by expert. Resizing while running (shrink first, so peak memory does not rise) is MaltOE's addition.
+- **Slot lookup.** Upstream builds a lookup of the selected experts in the graph after routing and uploads the misses through a scheduler copy callback. MaltOE extends the lookup to pages `(L, e, j < k)`, so a narrower width never loads the wider chunks.
 - **Working-set tracker.** For each layer, a ring buffer holds the last `W` tokens' routed expert sets. `WS_L` is the union of those sets, and a page `(L, e, j)` is in the working set if `e ∈ WS_L` and `j < k`. **Initial value: `W = 32` tokens.** The tracker also records `|WS_L|` for several window sizes so the dashboard can plot Denning's working-set size curve.
 - **Eviction.** Pages outside the working set go first, least recently used first. A working-set page is evicted only after the controller has been signalled and has not resolved the shortfall. That case counts as thrashing in telemetry (Req 6.6, 6.7).
 - **Thrash signal.** A layer is thrashing when it evicts working-set pages and its miss rate stays above an initial value of 25% over `W` tokens. The pager reports `ws_overflow{L, deficit_pages}` to the controller.
-- **RAM cache (warm tier).** Pinned host buffers hold pages up to the RAM Budget, with the same working-set-then-LRU policy over a longer window. **Initial value: `W_ram = 8·W`.**
-- **SSD reader (cold tier).** Pages are read from the package file with unbuffered I/O (`FILE_FLAG_NO_BUFFERING` on Windows, aligned reads). The OS page cache therefore does not hide the RAM Budget, and the SSD byte counters are real.
+- **RAM and SSD tiers (v1).** The package file is memory-mapped, so the operating system's page cache is the RAM tier and the file on SSD is the cold tier. The RAM Budget is imposed with the RAM filler (`maltoe-ballast --ram`), and bytes read from disk are measured with OS counters. MaltOE does not run its own RAM cache or unbuffered SSD reader in v1. It adds them (pinned host buffers with a working-set-then-LRU policy over `W_ram = 8·W`, and `FILE_FLAG_NO_BUFFERING` reads) only if Steps B and C show the page cache cannot be kept within the RAM Budget or hides the disk traffic.
 - **Prefetch toggle (Req 6.5).** It is off by default. When on, it uses the next-layer routing guess from the current layer's hidden state, run through layer `L+1`'s router. Prefetches have lower priority than demand loads. The harness measures on against off.
 - **Counters (Req 6.8).** Per tier: hits, misses, loads, evictions, and bytes moved (SSD→RAM, RAM→VRAM). Per token: miss stall time.
 - **Residency off (Req 6.9).** Every page of the current width sits in VRAM (config A or B), or experts use stock `--n-cpu-moe` static placement (baseline). There are no slot pools.
@@ -321,6 +327,8 @@ The engine reports actual allocations, and the controller uses those instead of 
 
 Speed caps optional work at `C − 1` chunks. Quality allows all of it. Balanced sits between them through the deadline. This is the "how much optional work is allowed" mapping from Liu et al.
 
+**To re-check (Task 1 checkpoint).** The reason given for the Speed cap is that a narrower expert is faster even with VRAM to spare. In the Task 1 spike on the RTX 4060 (no CUDA graphs) that held against the chunked full width but not against the stock fused expert: `k = 2` was 1.29x the stock expert's time per layer in decode (Feasibility Report 6.6a). Task 6.8 measures this in the real engine. If `k = 2` is not faster than A-stock there, the Speed objective's rationale is revised before the write-up repeats it.
+
 #### Mid-session adaptation (memory pressure only)
 
 The pressure signals are:
@@ -403,13 +411,16 @@ Offline (Req 8.3): the app loads no external assets, all fonts and scripts are b
 
 | Id | Runtime | Width | Residency |
 | --- | --- | --- | --- |
-| A Full | maltoe-engine | fixed `k = C` | off (all pages in VRAM; runs only where it fits, otherwise recorded as OOM) |
+| A-stock | stock llama.cpp, unmodified fused experts | full | off (all experts in VRAM; runs only where it fits, otherwise recorded as OOM) |
+| A-chunked | maltoe-engine, package layout | fixed `k = C` | off (all pages in VRAM; runs only where it fits, otherwise recorded as OOM) |
 | B Slim | maltoe-engine | adaptive (controller, residency off) | off |
 | C Offloaded | maltoe-engine | fixed `k = C` | on (working-set pager) |
 | D Elastic | maltoe-engine | adaptive | on |
 | BL-1 | stock llama.cpp | — | full GPU offload where it fits |
 | BL-2 | stock llama.cpp | — | `--n-cpu-moe N`, with `N` set to the smallest value that fits the budget |
+| BL-2b | stock llama.cpp | — | `--n-cpu-moe N` plus `--moe-cache-mib M`, the strongest stock setup |
 | BL-3 | edge0-infer | — | Edge0 slots (reference point, different checkpoint) |
+| BL-4 | tail-skip | — | the same model computing only the top `m` of the 8 routed experts, with `m` chosen to match the active expert parameters of each width (about 3 for `k = 1`, 5 for `k = 2`). How it is run (an existing engine or a small llama.cpp change) is decided in Task 4.6 |
 
 The matrix covers VRAM budgets of 4, 6, and 8 GB, contexts of 2K, 4K, and 8K, and RAM Budget off or on (on only where RAM holds the whole package).
 
@@ -506,7 +517,7 @@ Tests are only written where tasks call for them. This section defines what each
 | G0 Novelty | Does CRISP (full paper) or other found work already adapt width and residency online to a changing budget with a user objective? | No | Narrow the claim again before any write-up (Req 1.8) |
 | G1 Model | Is Qwen3-30B-A3B available, with an acceptable licence and config matching the table above? | Yes | Pick another verified small MoE; MoSE only if checkpoints exist |
 | G2 Engine | On the llama.cpp fork at a pinned commit, do (a) chunked `mul_mat_id` and (b) a per-MoE-layer host split for slot remapping run on CUDA, with overhead you accept after seeing the numbers? | Yes | Try Route B (Edge0-infer fork); if both fail, report the smallest engine change and stop for a decision (Req 1.7) |
-| G3 Width quality | Do importance-ordered `k = 2` and `k = 1` keep useful quality on the eval set? (You judge from the numbers; no threshold is preset.) | Yes | Try `C = 4`; consider recovery fine-tuning as a stretch; or MoSE if checkpoints exist |
+| G3 Width quality | Do importance-ordered `k = 2` and `k = 1` keep useful quality on the eval set? (You judge from the numbers; no threshold is preset.) | Yes | Try `C = 4` first (32-element block types only); MoSE only if its code and checkpoints appear; recovery fine-tuning stays a stretch |
 | G4 Budget enforcement | Do the fillers create real pressure on Windows (WDDM may move other processes' VRAM to system memory), and does NVIDIA's sysmem fallback setting turn OOM into silent slowdown? | Understood and recorded | Rely on self-accounting; set "Prefer No Sysmem Fallback" for runs; document it |
 
 Task 1 also verifies these existing-feature questions:
