@@ -108,8 +108,8 @@
   - [ ] 4.2 Write the harness runner: config matrix (4/6/8 GB VRAM budget via the VRAM probe from 1.8, 2K/4K/8K context, RAM Budget only on the PC), per-run metrics, process I/O counters for SSD bytes, peak VRAM/RAM, minimum available RAM, OOM detection. Output CSV and JSON.
   - [ ] 4.3 Run BL-1 (full offload where it fits), BL-2 (`--n-cpu-moe` with the smallest N that fits), BL-2b (`--n-cpu-moe` plus `--moe-cache-mib`, cache sized from the Step B results), and BL-3 (Edge0, reference point) on the laptop. Label BL-2 and BL-2b with the CPU.
   - [ ] 4.4 Write `docs/baseline-report.md`: performance envelope, OOM cases, the statement that 4/6 GB budgets simulate memory only, and machine manifests.
-  - [ ] 4.6 Tail-skip baseline (BL-4): choose how to run it, either an existing engine's mode (Strata tail-skip, `tandem.cpp --fast`) after checking its licence and that it runs this model, or a small llama.cpp change that computes only the top `m` routed experts. Run it at `m` matching each width's active expert parameters, on the frozen evaluation set.
   - [ ] 4.5 **Checkpoint:** the builder sets the thresholds the later tasks need: the usefulness bar for Req 11.3 and `D_bal` for the Balanced objective. Record them in the Baseline Report.
+  - [ ] 4.6 Tail-skip baseline (BL-4): choose how to run it, either an existing engine's mode (Strata tail-skip, `tandem.cpp --fast`) after checking its licence and that it runs this model, or a small llama.cpp change that computes only the top `m` routed experts. Run it at `m` matching each width's active expert parameters, on the frozen evaluation set.
   - _Requirements: 2.1–2.7, 10.8_
 
 - [ ] 5. Elastic Package conversion pipeline
