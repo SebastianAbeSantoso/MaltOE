@@ -304,9 +304,29 @@ Five problems per set means each difference of one problem is 20 percentage poin
 
 | Measurement | Step | Result |
 | --- | --- | --- |
-| Ballast holds VRAM; behaviour when a run exceeds free VRAM (fail, or spill to shared memory), with sysmem fallback on and off | C | *pending* |
-| RAM filler lowers available RAM on laptop and PC | C | *pending* |
+| Ballast holds VRAM; behaviour when a run exceeds free VRAM (fail, or spill to shared memory), with sysmem fallback on and off | C | **Idle filler done** (see 8.1); active filler pending |
+| RAM filler lowers available RAM on laptop and PC | C | **Laptop: yes** (9.88 to 6.92 GiB available with 3 GiB held, VirtualLock succeeded); PC pending |
 | Edge0 builds and runs on the RTX 4060 laptop; backend; tok/s at several `expert_slots` | E | *pending* |
+
+### 8.1 G4 on the laptop, idle filler (2026-11-17)
+
+`llama-bench` with `-ngl 99 -ncmoe 36` (about 5.4 GB of VRAM, fixed placement; `llama-bench` does not fit itself to free memory unless `--fit-target` is given) ran next to the VRAM filler holding 0 to 4 GiB. Driver 610.62.
+
+| filler | Driver Default: prompt / decode tok/s | Prefer No Sysmem Fallback: prompt / decode tok/s | peak GPU in use (both) |
+| ---: | ---: | ---: | ---: |
+| 0 GiB | 35.4 / 24.1 | 53.0 / 28.2 | 5,397 MiB |
+| 1 GiB | 45.4 / 27.5 | 32.8 / 26.3 | 6,504 MiB |
+| 2 GiB | 45.7 / 24.7 | 48.8 / 28.5 | 7,528 MiB |
+| 3 GiB | 34.8 / 26.4 | 39.1 / 27.4 | 7,924 MiB |
+| 4 GiB | 29.3 / 25.3 | 41.4 / 24.2 | 7,924 MiB |
+
+With the 3 and 4 GiB filler the two programs asked for about 8.5 and 9.5 GB, more than the 8 GB card, yet nothing failed, decode speed did not drop, and total use stayed at about 7.9 GB (`nvidia-smi` during the overlap: 7,924 and 7,830 MiB). With the default setting, one reading showed the 4 GiB filler alone at 2,451 MiB. So up to about 1.6 GB of what was asked for was not in VRAM, and since the benchmark did not slow down, it was almost certainly the idle filler's memory that Windows moved out. That is inferred from the totals; Windows does not report which allocation it moved. The CUDA sysmem fallback setting made no difference, because it governs what CUDA does when an allocation fails, and no allocation failed. The "shared GPU memory" counter moved only 55 to 134 MiB, so it did not see the move either (it samples once a second).
+
+**Consequences:**
+
+1. **An idle filler does not create lasting pressure on Windows**, so it does not impose the 4 and 6 GB budgets on the baselines. A filler that keeps using its memory is being tested next (`ballast_probe ... touch_ms`). If Windows then moves the benchmark's memory instead, that is the realistic "another GPU app" case for the Live Squeeze.
+2. **MaltOE's own accounting stays the primary limit** on MaltOE (design.md), and baselines will need either the active filler or a configuration that fits each budget (for example `-ncmoe` chosen per budget).
+3. **For all later runs, keep "Prefer No Sysmem Fallback"** so that a CUDA allocation that cannot be met fails visibly. (Proposed; it made no difference here.)
 
 ## 9. Recommendation and checkpoint
 

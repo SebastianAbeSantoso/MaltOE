@@ -35,6 +35,7 @@ param(
     [string]$Label      = "run",
     [string]$OutDir     = ".\g4-results",
     [int]$TimeoutSec    = 900,
+    [int]$TouchMs       = 0,         # 0: idle filler; >0: the filler rewrites its memory every TouchMs ms
     [switch]$DryRun
 )
 $ErrorActionPreference = "Stop"
@@ -49,7 +50,7 @@ New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 function Start-Ballast([double]$gib, [string]$logBase) {
     if ($gib -le 0) { return $null }
     $outFile = "$logBase.ballast.txt"
-    $p = Start-Process -FilePath $Ballast -ArgumentList @("$gib", "1800") -RedirectStandardOutput $outFile -PassThru -NoNewWindow
+    $p = Start-Process -FilePath $Ballast -ArgumentList @("$gib", "1800", "$TouchMs") -RedirectStandardOutput $outFile -PassThru -NoNewWindow
     $deadline = (Get-Date).AddSeconds(90)
     while ((Get-Date) -lt $deadline) {
         if ((Test-Path $outFile) -and ((Get-Content $outFile -Raw) -match "READY")) { break }

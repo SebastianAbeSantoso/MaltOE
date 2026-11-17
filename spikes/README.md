@@ -153,6 +153,13 @@ nvcc -O2 -o ballast_probe.exe ballast_probe.cu
 .\run_g4.ps1 -LlamaBin C:\src\llama.cpp\build\bin -Model D:\models\Qwen3-30B-A3B-Q4_K_M.gguf -Label no-fallback
 ```
 
+Then the active filler, which rewrites its memory every 50 ms the way a game would (keep the setting on **Prefer No Sysmem Fallback**):
+
+```powershell
+nvcc -O2 -o ballast_probe.exe ballast_probe.cu      # rebuild: the active mode is new
+.\run_g4.ps1 -LlamaBin E:\llamacpp\build\bin -Model D:\models\Qwen3-30B-A3B-Q4_K_M.gguf -Label active -TouchMs 50
+```
+
 Each run uses ballast sizes 0, 1, 2, 3, and 4 GiB. With no ballast the benchmark should fit in 8 GB; the larger ballasts push it over. The question is whether it then fails or silently slows down.
 
 RAM filler, on **both** machines (on the 32 GB PC this is what forces the SSD tier into use):

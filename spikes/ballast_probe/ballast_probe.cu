@@ -6,8 +6,12 @@
 //     shared system memory ("CUDA - Sysmem Fallback Policy")?
 //   * while it runs, what does free VRAM look like (printed every 2 s)?
 //
-// Usage:  ballast_probe.exe <GiB> [hold_seconds]
+// Usage:  ballast_probe.exe <GiB> [hold_seconds] [touch_ms]
 //   hold_seconds omitted or 0: hold until a line is typed (or stdin closes).
+//   touch_ms omitted or 0: allocate once and stay idle. Windows (WDDM) may then move this memory out of
+//   VRAM when another program needs room, so an idle filler creates no lasting pressure.
+//   touch_ms > 0: rewrite all held memory every touch_ms milliseconds, the way a game or another GPU
+//   program keeps its memory in use. The other program then has to give way instead.
 // Exit code: 0 target reached, 3 allocation stopped short, 1 CUDA error.
 //
 // Build (x64 Native Tools prompt, CUDA toolkit installed):
@@ -44,6 +48,7 @@ int main(int argc, char ** argv) {
     }
     const double gib = std::atof(argv[1]);
     const int hold_s = argc > 2 ? std::atoi(argv[2]) : 0;
+    const int touch_ms = argc > 3 ? std::atoi(argv[3]) : 0;
     if (gib <= 0) {
         std::fprintf(stderr, "GiB must be > 0\n");
         return 1;
@@ -72,7 +77,8 @@ int main(int argc, char ** argv) {
         got += n;
     }
     cudaDeviceSynchronize();
-    std::printf("READY allocated %zu MiB of requested %zu MiB\n", got / MiB, target / MiB);
+    std::printf("READY allocated %zu MiB of requested %zu MiB (%s)\n", got / MiB, target / MiB,
+                touch_ms > 0 ? "active: rewriting it periodically" : "idle");
     print_mem("after");
 
     std::atomic<bool> stop{false};
@@ -81,6 +87,23 @@ int main(int argc, char ** argv) {
             std::this_thread::sleep_for(std::chrono::seconds(2));
             if (!stop) print_mem("holding");
         }
+    });
+    // CUDA calls from this second thread use the same device and context as main.
+    std::thread toucher([&] {
+        if (touch_ms <= 0) return;
+        cudaSetDevice(0);
+        int pass = 0;
+        while (!stop) {
+            for (size_t i = 0; i < blocks.size(); ++i) {
+                const size_t n = std::min(block, got - i * block);
+                cudaMemset(blocks[i], (pass & 1) ? 0x5A : 0xA5, n);
+            }
+            cudaDeviceSynchronize();
+            ++pass;
+            std::this_thread::sleep_for(std::chrono::milliseconds(touch_ms));
+        }
+        std::printf("touched all memory %d times\n", pass);
+        std::fflush(stdout);
     });
 
     if (hold_s > 0) {
@@ -91,6 +114,7 @@ int main(int argc, char ** argv) {
     }
     stop = true;
     reporter.join();
+    toucher.join();
 
     for (void * p : blocks) cudaFree(p);
     return got >= target ? 0 : 3;
