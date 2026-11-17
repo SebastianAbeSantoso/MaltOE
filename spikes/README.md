@@ -130,7 +130,18 @@ If a static configuration fails with out-of-memory, that is a result; the script
 
 Paste back: the printed table, and `nvidia-smi` once while idle.
 
-### Step B2: llama.cpp's own cache tuner
+### Step B2: does a CPU share make the cache faster?
+
+llama.cpp's tuner (`scripts/moe-cache-tune.py`) does not work on Windows: it stops the server with a Ctrl+C signal that Python cannot send there. The probe does the same measurement directly, since its runs end by themselves:
+
+```powershell
+cd E:\Github\Molt\spikes\moe_cache_probe
+.\run_moe_cache.ps1 -LlamaBin E:\llamacpp\build\bin -Model D:\models\Qwen3-30B-A3B-Q4_K_M.gguf -StaticNcmoe 40 -CacheMiB 3072 -CpuShares 0,0.5,0.95 -OutDir .\moe-cache-share
+```
+
+That is static `-ncmoe 40` (about 4.4 GB of VRAM) against a 3 GB cache at three CPU shares, at about the same VRAM, two runs each: 8 runs, roughly 5 minutes. With `-lv 4` the cache hit rates should now appear.
+
+### (Not used) llama.cpp's own cache tuner
 
 Step B found the cache slower than static offload on the laptop. llama.cpp ships a tuner that runs `llama-server` at two cache sizes and three CPU shares (`--moe-cache-cpu-share`, where the CPU computes some cache misses instead of uploading them), records the routing, and predicts the best setting. It also prints the hit rates. It needs only Python's standard library.
 
