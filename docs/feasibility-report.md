@@ -237,6 +237,34 @@ Two limits that stay now that CUDA accepts it:
 - **Paging.** For down, a width-k prefix is a piece of every row, not one contiguous block. Copying a width-k slice over PCIe as 2,048 short pieces would be slow. A layout that is contiguous for transfer (chunk-major, as in the package) and a layout that is a prefix view for compute (expert-major) are different. One way to reconcile them is to upload each chunk contiguously and scatter it into the expert-major slot on the GPU, which runs at VRAM speed. That is a design idea, not tested.
 - **Quality is a separate question.** Nothing here says a width-reduced Qwen3-30B-A3B stays useful. That is gate G3 (Step D).
 
+### 6.6c Step B: llama.cpp's MoE cache against static offload (first run, 2026-11-17)
+
+RTX 4060 Laptop GPU, i9-14900HX, 16 GB RAM, Qwen3-30B-A3B Q4_K_M (18.6 GB file, larger than RAM), 128 generated tokens from a fixed prompt, greedy, two runs per configuration, llama.cpp `a946eb54` with CUDA 12.9.
+
+| configuration | decode tok/s (run 1 / 2) | prompt tok/s | peak GPU MiB | disk read GiB per run | lowest free RAM MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| static `-ncmoe 40` | 10.8 / 13.3 | 12.1 / 12.5 | 4,387 | 6.0 / 10.2 | 89 / 101 |
+| static `-ncmoe 34` | 15.9 / 25.7 | 14.0 / 13.3 | 6,429 | 9.7 / 9.5 | 201 / 213 |
+| static `-ncmoe 28` | 17.2 / 18.6 | 11.1 / 13.3 | 7,905 | 5.0 / 3.5 | 242 / 252 |
+| cache 1,024 MiB, all experts on host | 5.2 / 5.4 | 10.8 / 19.9 | 2,435 | 5.6 / 7.6 | 251 / 277 |
+| cache 2,048 MiB | 6.3 / 6.0 | 19.9 / 19.6 | 3,459 | 7.7 / 7.4 | 99 / 95 |
+| cache 3,072 MiB | 6.8 / 6.9 | 20.0 / 20.4 | 4,483 | 6.4 / 7.4 | 297 / 296 |
+| cache 4,096 MiB | 7.5 / 7.9 | 19.5 / 18.9 | 5,509 | 7.4 / 6.8 | 305 / 319 |
+
+Disk read is the sum of one-second samples of the whole disk, so it is approximate. Two script problems: every row says "FAIL (exit )" only because Windows PowerShell 5.1 drops the exit code (fixed in `spikes/common.ps1`; the runs finished, since speeds were printed), and the cache hit rate column is empty because the log line was not found (the log is needed to see why).
+
+**What it shows:**
+
+1. **RAM, not VRAM, is the binding limit on this laptop.** Free RAM fell to 0.1 to 0.3 GB in every run, and each 30 to 50 s run read several GiB from disk. The SSD tier is exercised with no RAM filler, as expected for a model file larger than RAM.
+2. **At matched VRAM, static offload was faster than the cache.** At about 4.4 GB of GPU memory, static `-ncmoe 40` decoded at 10.8 to 13.3 tok/s and the 3 GB cache at 6.8 to 6.9. Every cache size was slower than every static setting. A likely reason, not tested: llama.cpp's own documentation says host experts are not pinned when the model is memory-mapped (the default), so uploads to the GPU are slower, and it suggests `--moe-cache-cpu-share` for that case. Pinning all experts is not possible here, because the file does not fit in RAM. The laptop's strong CPU also favours computing experts on the CPU, as static offload does.
+3. **Runs vary a lot.** `-ncmoe 34` gave 15.9 and 25.7 tok/s in two runs of the same command. With RAM this tight, the state of the OS page cache decides much of the speed. Later measurements need more repeats and a recorded free-RAM figure.
+
+**What it changes:**
+
+- **The strongest stock baseline on this laptop is static `-ncmoe`, not the cache (BL-2b).** Both stay in the plan; the report must not assume the cache is the harder opponent.
+- **Approved change 2 still stands but is now riskier.** MaltOE needs a VRAM residency mechanism for width-aware paging either way, but the upstream cache, as configured here, lost to static offload. Before building on it, the next probe should try `--moe-cache-cpu-share` (llama.cpp ships a tuner, `scripts/moe-cache-tune.py`) and record hit rates.
+- **A point in width's favour, to be measured, not claimed:** when the model streams from disk, a narrower width reads fewer bytes per expert, so it may help this laptop more through disk and RAM than through GPU compute.
+
 ### 6.5 Smallest engine change for Route A (Req 1.7)
 
 llama.cpp has dynamic residency (VRAM to host) but not variable-width execution, so the change is to add width on top and extend the cache:
@@ -255,7 +283,7 @@ I am not giving an hours estimate; the real cost is item 3, and a short spike (r
 | --- | --- | --- |
 | Chunked experts on CUDA: correctness | A | **Passed** on the RTX 4060 Laptop GPU (see 6.6a) |
 | Chunked experts on CUDA: ms per layer, k = 1..3 vs fused | A | **Measured** (see 6.6a): 1.97x decode and 1.48x prefill at full width; narrower widths scale down as expected |
-| Upstream cache: decode tok/s, hit rate, bytes uploaded, disk read, for static `-ncmoe` vs cache sizes | B | *pending* |
+| Upstream cache: decode tok/s, hit rate, bytes uploaded, disk read, for static `-ncmoe` vs cache sizes | B | **First run done** (see 6.6c); hit rates missing, rerun of the parse pending |
 
 ## 7. G3: width quality (pending)
 
