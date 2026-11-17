@@ -1,85 +1,98 @@
 # Kiroween 2026: rules check (pre-flight P3)
 
-First checked 2026-11-16 against the handoff (`docs/elastic-kiroween-handoff.md`, "Kiroween rules and deadlines") from search excerpts, because Devpost returns HTTP 403 to automated fetches. Updated 2026-11-17 from the full text of the Devpost overview page (`kiroween.devpost.com`), pasted by the builder from a browser.
+First checked 2026-11-16 against the handoff (`docs/elastic-kiroween-handoff.md`, "Kiroween rules and deadlines") from search excerpts, because Devpost returns HTTP 403 to automated fetches. Updated 2026-11-17 from the full text of the Devpost overview page and the **Official Rules** (version "Updated November 16, 2026, to include residents of Australia"), both pasted by the builder from a browser. Where the overview page and the Official Rules differ, the Official Rules prevail (Rules §11).
 
-**Not yet seen:** the **Official Rules** tab (eligibility, full judging details) and the **Resources** tab (credit request details). The overview page says the Rules tab has the full details. Nothing here replaces reading it.
+Entrant: **solo, a student** (builder, 2026-11-17).
 
-## Dates
+## Dates (Rules §1)
 
-| Date | Event | Source |
+| Date (Pacific Time) | WITA (UTC+8) | Event |
 | --- | --- | --- |
-| Oct 30, 2026 | Submission period opens | Devpost overview |
-| Nov 11, 10:00 AM PT | Devpost Build Session (optional) | Devpost overview |
-| Nov 12 to 15 | Epic MegaJam | handoff only, not checked |
-| Dec 1, 12:00 PM PT (Dec 2, 04:00 WITA) | Credit requests close | third-party article (P1 is done, so this no longer matters) |
-| Dec 4, 2:00 PM PT (Dec 5, 06:00 WITA) | Submission deadline | Devpost overview: "Friday, December 4, 2026 at 2:00 PM Pacific Time" |
-| Dec 31 | Redeemed credits expire | third-party article |
+| Oct 13, 2026, 8:30 AM | Oct 13, 23:30 | Registration opens |
+| Oct 30, 2026, 9:00 AM | Oct 31, 00:00 | Submission Period opens |
+| Dec 1, 2026, 12:00 PM | Dec 2, 04:00 | Credit requests close (P1 done) |
+| Dec 4, 2026, 2:00 PM | Dec 5, 06:00 | **Submission and registration close.** Unredeemed credit codes expire. No extensions, no late entries. |
+| Dec 16, 2026, 1:00 PM | Dec 17, 05:00 | Judging Period opens |
+| Dec 31, 2026, 11:59 PM | Jan 1, 15:59 | Redeemed credits expire |
+| Jan 29, 2027, 1:00 PM | Jan 30, 05:00 | Judging Period ends. **The project must stay available to judges, free and unrestricted, until then.** |
+| ~Feb 3, 2027, 9:00 AM | ~Feb 4, 01:00 | Winners announced |
 
-PT is UTC-8 in December, so the deadline is 22:00 UTC on Dec 4, which is 06:00 on Dec 5 in WITA (UTC+8). **No difference from the handoff dates.**
+October 13 and 30 are in PDT (UTC-7). The December and later dates are in PST (UTC-8).
 
-## Confirmed from the Devpost overview page
+**No difference from the handoff dates.** The handoff did not give the judging and announcement dates.
 
-### Eligibility of the project
+## Eligibility (Rules §3)
 
-- Only new projects, built during the Submission Period (Oct 30 to Dec 4, 2026). This repository's first commit is 2026-11-11. **OK.**
-- The app must use Kiro: "IDE, CLI, Web, and/or Kiro Crew". **Kiro Web counts.** This settles the earlier open question.
-- Teams can have up to three members.
+- Individuals who are at least the **age of majority where they reside**, at the time of entry. Teams of up to 3. A solo entrant is fine.
+- **Excluded residents:** where US or local law prohibits taking part or receiving a prize, including Quebec, Argentina, Brazil, Italy, the Philippines, Russia, Cuba, Iran, North Korea, Syria, Belarus, Crimea, the DNR and LNR regions, the UAE, and other countries under comprehensive OFAC sanctions.
+- Also excluded: employees, agents and household or immediate family of AWS, Devpost and other Promotional Entities; judges and their employers; and affiliates of any of these.
+- Projects built with financial or preferential support from AWS or Devpost are excluded (§4).
+- **The builder confirms their own eligibility.** This file does not infer it from the timezone (handoff rule). The Rules have a Bahasa Indonesia translation, if that helps.
+- The rules also say Kiro features and models vary by region, and the entrant is responsible for regional restrictions (§4).
 
-### Category
+## Project requirements (Rules §4)
 
-- One category per submission: Resurrection, Frankenstein, Skeleton Crew, or Costume Contest. MaltOE enters **Resurrection** (Imprecise Computation, 1991, and the Working Set model, 1968).
-- A project can win one Overall Prize or one Category Prize, not both, plus any number of Bonus Prizes.
+| Rule | What it means for MaltOE | Status |
+| --- | --- | --- |
+| A working software application built with Kiro (IDE, CLI, Web, and/or Crew). "Insufficient use of Kiro will result in disqualification." | Built in Kiro Web, with specs, steering, hooks, sub-agents and a power. | in progress |
+| One category | **Resurrection** (Imprecise Computation, 1991; Working Set, 1968) | planned |
+| **Functionality:** must install and run consistently on its intended platform, and work as shown in the video and text. | The intended platform must be stated: Windows 11, NVIDIA GPU with 8 GB VRAM, CUDA (the RTX 4060 laptop). AMD/Vulkan stays a stretch and is not claimed as supported unless it works. | **new, add to Req 15** |
+| **New project only.** Built during the Submission Period. "Must disclose any other pre-existing code or work incorporated." | Disclose: the llama.cpp fork (MIT, pinned commit), Qwen3-30B-A3B (Apache-2.0), eval data (HumanEval, GSM8K, perplexity text), FastAPI, React and other libraries, and the handoff planning document. **Builder: confirm the handoff was written on or after Oct 30, or disclose it as prior planning.** | **new, add to Req 15** |
+| **Open source:** allowed if licenses are respected and the project "enhances and builds upon" the underlying product. | MaltOE adds width adaptation and a controller on top of llama.cpp. Keep llama.cpp's MIT notice in `engine/`. | OK if kept |
+| **Third-party integrations:** must be authorised under their terms. | Model and dataset licenses must be checked and listed. | **new** |
 
-### What to submit
+## Submission requirements (Rules §4)
 
 | Item | Rule | MaltOE status |
 | --- | --- | --- |
-| Public GitHub repo | GitHub only (not GitLab or Bitbucket). Must contain all source, assets and instructions needed to run it. | Public (checked in P2). Instructions: README Quickstart, Task 13.1. |
-| Open-source license | A license file that GitHub detects and shows in the repo's About section. | **OK.** GitHub API reports `license: MIT`. |
-| `/.kiro` at the repo root | Shows use of specs, hooks and steering. Must not be in `.gitignore` ("could disqualify"). | **OK** (P2). `main` gets the renamed spec path when PRs #2–#4 merge. |
-| URL to the working app | Login credentials go in the private submission form. | **Gap.** MaltOE is a local app, not a hosted one. Decide what this URL is (see below). |
-| Text description | Features and functionality. | Task 13. |
-| Demo video | Under 3 minutes (judges need not watch past 3:00). Show the project **working on the device it was built for**. **Public on YouTube.** No third-party trademarks, copyrighted music or other copyrighted material without permission. | Req 15.3 says under 3 minutes. YouTube, device, and trademark/music rules are **new** (see below). |
-| Kiro write-up | How Kiro was used, at a "next-level" depth. Prompts given: IDE/CLI/Web/Crew differences, custom agents, agent hooks, spec-driven development vs vibe coding, steering strategy, MCP, property-based testing, Kiro powers. | **New**, not in Req 15. |
+| URL to the working app | "a link to a website, functioning demo, or a **test build**" (Testing paragraph). | **Plan: a GitHub Release with a Windows test build plus Quickstart.** Judges may judge only from the text, images and video. |
+| Text description | Features and functionality. | Task 13 |
+| Demo video | Under 3 minutes. Shows the project **functioning on the device it was built for**. **Public on YouTube**, linked in the form. **No third-party trademarks, copyrighted music or other material without permission.** | Req 15.3 covers the length only. The rest is **new.** |
+| Public GitHub repo | All source, assets and instructions. An open-source license detected in the About section. | OK: public, MIT detected (P2) |
+| `/.kiro` at the repo root | Not in `.gitignore`, or risk disqualification. | OK (P2). `main` gets the renamed spec path when PRs #2–#4 merge. |
+| Category and bonus categories | Named in the form. | Resurrection + Best Student Project: Resurrection (+ optional bonuses) |
+| Kiro write-up | IDE/CLI/Web/Crew, custom agents, hooks, specs vs vibe coding, steering, MCP, PBT, powers. | **new**, Task 13 |
+| Language | English, or English translations of all materials. | OK |
+| Ownership | Original work, solely owned, no infringement of IP. Contractors allowed if the work is the entrant's own ideas. | OK |
 
-### Judging criteria
+## Judging (Rules §6)
 
-Five criteria. The overview page gives no weights.
+- **Stage One, pass/fail:** the project "reasonably fits the theme and reasonably applies the required tools". The README and video must make the Resurrection link and the Kiro use obvious early.
+- **Stage Two:** five **equally weighted** criteria, 20% (10 points) each: Potential Impact, Technological Implementation (use of Kiro), Design ("not just a technical proof of concept"), Innovation/Idea, Presentation.
+- Judging may use expert panels, peer review, **automated AI-driven analysis**, or a mix. The README, write-up and repo should therefore be easy to read cold, without the video.
+- Ties are re-scored from scratch at 20 points per criterion.
 
-1. **Potential Impact:** a real problem for a real audience, shown working; useful, intuitive, accessible.
-2. **Technological Implementation:** how thoroughly and skilfully the project uses Kiro; strategy, variety of Kiro tools, experimentation.
-3. **Design:** a complete, coherent product experience, "not just a technical proof of concept".
-4. **Innovation/Idea:** novel concept that differs from existing ones.
-5. **Presentation:** the video shows the project working end to end and says what problem it solves, for whom, and why it matters.
+## Prizes MaltOE can enter (Rules §8)
 
-### Prizes
+A project can win **one Overall Prize or one Category Prize, plus any number of Bonus Prizes.**
 
-1st $30,000, 2nd $20,000, 3rd $10,000 (matches the handoff). Best Resurrection $5,000. Bonus prizes that may apply to MaltOE:
+| Prize | Amount | How it is awarded | MaltOE |
+| --- | --- | --- | --- |
+| 1st / 2nd / 3rd | $30,000 / $20,000 / $10,000 | highest overall scores | yes |
+| Best Resurrection | $5,000 | highest score in the category | yes |
+| **Best Student Project: Resurrection** | $1,500 + 1-year Kiro Pro Max | highest-scoring eligible student entry in Resurrection | **yes (solo student).** The form needs LinkedIn, student email, year and degree, and school name. Proof of enrollment may be requested; reply in time or lose eligibility. |
+| Best Demo | $1,000 | highest Presentation score among the top 10% overall | automatic |
+| Social Blitz | 3-month Kiro Pro+ (5 winners) | post must **start with** `#KiroweenHackathon26`, posted during the period, linked in the form. Judged on "original thoughts vs AI writing" and post assets. The profile must match the submission details. | optional. **Write it yourself.** |
+| Bonus Blog | 2,000 Kiro credits (top 100) | public post on a third-party platform during the period, saying it is written for Kiroween 2026 | optional |
+| Startup, Ghost of Kiroween Past, Kiro Crew App | | | no |
 
-| Bonus prize | Extra step | Applies? |
-| --- | --- | --- |
-| Best Demo ($1,000) | none, all eligible submissions are considered | yes, automatically |
-| Social Blitz (5 winners, 3 months Kiro Pro+) | public social post during the period, starting with `#KiroweenHackathon26`, about your favourite thing about Kiro; add the URL | optional, cheap |
-| Bonus Blog (100 winners, 2,000 Kiro credits) | public post on a third-party blog platform during the period, saying it is written for Kiroween 2026; add the URL | optional |
-| Best Student Project: Resurrection ($1,500 + 1 year Kiro Pro Max) | all members students; LinkedIn, student email, year, degree, school | only if the builder is a student |
-| Best Startup, Ghost of Kiroween Past, Best Kiro Crew App | founder proof / Kiroween 2025 registration / a Kiro Crew app | unlikely |
+Prizes need identity verification, a winner affidavit and tax forms (a W-8BEN for non-US residents) returned within 10 business days. Fees and taxes are the winner's.
 
-## Differences from the handoff and from Requirement 15
+## Differences from the handoff and Requirement 15
 
-Dates: **none**.
+Dates: **none.**
 
-Rules that Requirement 15 does not cover yet:
+Rules that Requirement 15 does not cover yet (proposed additions, not yet applied to the spec):
 
-1. **License visible in the About section.** Already satisfied (MIT, detected).
-2. **URL to a working app.** MaltOE runs locally on the user's GPU and can't be hosted for judges. The likely answer is the repo or a GitHub Release with a Quickstart, plus the video as the proof that it works. If the Official Rules say more about apps that run locally, follow those.
-3. **Video on public YouTube, on the device it was built for.** Record on the RTX 4060 laptop. That machine is also where the numbers come from.
-4. **No third-party trademarks or copyrighted material in the video without permission.** Use no logos and no copyrighted music. The planned DeepSeek opening joke names another company's product. Keep it to a plain-text mention or drop it; this note is not legal advice.
-5. **Kiro write-up.** The judges ask specifically about hooks, specs vs vibe coding, steering, MCP, PBT, powers, custom agents and which Kiro clients were used. MaltOE has specs, steering, two agent hooks, Kiro Web, sub-agents and the github-cli power, and PBT with `hypothesis` is planned (design.md, Correctness Properties). Record notes as the build goes so the write-up isn't reconstructed at the end.
-6. **Design criterion: "not just a technical proof of concept".** This supports keeping the web UI (Task 11) in scope and polished, not a debug page.
+1. **Platform statement and functionality:** state the intended platform, and make sure a judge can install and run the test build there.
+2. **Testing access until Jan 29, 2027:** keep the repo public and the test build downloadable until then. Tag the submitted state (for example `kiroween-2026-submission`) so later commits don't change what judges see.
+3. **Disclosure of pre-existing code and work:** llama.cpp, the model, datasets, libraries and the handoff document, with licenses.
+4. **Video:** public on YouTube, filmed on the RTX 4060 laptop, no copyrighted music, and no third-party trademarks without permission.
+5. **Kiro write-up**, covering the listed features.
+6. **Bonus entries:** Best Student Project: Resurrection details in the form.
 
-## Still to confirm (Official Rules and Resources tabs)
+## Open question: trademarks in the video
 
-- **Eligibility of the entrant:** age, country of residence, employer restrictions. The handoff says not to infer it from the builder's timezone, and this file does not.
-- Judging weights and the judging process (the stages, and who judges).
-- Anything the Rules tab says about apps that run locally, without a hosted URL.
-- Credit details on the Resources tab (moot: P1 is done).
+The rule says the video "must not include third party trademarks ... unless the Entrant has permission". A local-inference demo naturally shows names such as Qwen, NVIDIA, GeForce, Windows and llama.cpp, and the planned opening joke names DeepSeek. The rule does not say whether plain naming of a product (as opposed to logos or branding) counts.
+
+The Rules (§11) say an entrant who thinks a term is ambiguous must send a written request for clarification. **Suggested action:** email `support@devpost.com` before recording. Until there is an answer: show no logos, keep product names to plain text where needed, and drop the DeepSeek joke. This is not legal advice.
