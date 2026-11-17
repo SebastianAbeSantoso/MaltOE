@@ -130,6 +130,16 @@ If a static configuration fails with out-of-memory, that is a result; the script
 
 Paste back: the printed table, and `nvidia-smi` once while idle.
 
+### Step B2: llama.cpp's own cache tuner
+
+Step B found the cache slower than static offload on the laptop. llama.cpp ships a tuner that runs `llama-server` at two cache sizes and three CPU shares (`--moe-cache-cpu-share`, where the CPU computes some cache misses instead of uploading them), records the routing, and predicts the best setting. It also prints the hit rates. It needs only Python's standard library.
+
+```powershell
+python E:\llamacpp\scripts\moe-cache-tune.py --out D:\maltoe-work\moe-tune -- E:\llamacpp\build\bin\llama-server.exe -m D:\models\Qwen3-30B-A3B-Q4_K_M.gguf -cmoe -c 4096
+```
+
+`-cmoe` keeps all experts in host memory, which is what the cache is for. The tuner says it takes "a few minutes, mostly model loading"; with the model larger than RAM, expect longer. Paste everything it prints at the end (measured speeds, predicted t/s, recommended arguments). It was written for Linux and macOS as far as I can tell; if it fails on Windows, paste the error.
+
 ## Step C: can we hold memory on Windows? (Task 1.8)
 
 ```powershell

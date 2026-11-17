@@ -66,7 +66,8 @@ foreach ($c in $configs) {
     for ($i = 1; $i -le $Repeat; $i++) {
         $label = ($c.Name -replace "[^a-zA-Z0-9]+", "-").Trim("-") + "-run$i"
         $args2 = @("-m", $Model, "-ngl", "99", "-ncmoe", "$($c.Ncmoe)", "-f", $Prompt, "-n", "$NPredict",
-                   "-c", "$Ctx", "--temp", "0", "--seed", "1", "-no-cnv", "--no-warmup")
+                   "-c", "$Ctx", "--temp", "0", "--seed", "1", "-no-cnv", "--no-warmup",
+                   "-lv", "4")   # verbose: the cache's hit-rate line is filtered out at the default log level
         if ($c.Cache -gt 0) { $args2 += @("--moe-cache-mib", "$($c.Cache)") }
 
         if ($DryRun) { Say ("$exe " + ($args2 -join " ")); continue }

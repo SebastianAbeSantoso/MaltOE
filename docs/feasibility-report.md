@@ -251,7 +251,7 @@ RTX 4060 Laptop GPU, i9-14900HX, 16 GB RAM, Qwen3-30B-A3B Q4_K_M (18.6 GB file, 
 | cache 3,072 MiB | 6.8 / 6.9 | 20.0 / 20.4 | 4,483 | 6.4 / 7.4 | 297 / 296 |
 | cache 4,096 MiB | 7.5 / 7.9 | 19.5 / 18.9 | 5,509 | 7.4 / 6.8 | 305 / 319 |
 
-Disk read is the sum of one-second samples of the whole disk, so it is approximate. Two script problems: every row says "FAIL (exit )" only because Windows PowerShell 5.1 drops the exit code (fixed in `spikes/common.ps1`; the runs finished, since speeds were printed), and the cache hit rate column is empty because the log line was not found (the log is needed to see why).
+Disk read is the sum of one-second samples of the whole disk, so it is approximate. Two script problems: every row says "FAIL (exit )" only because Windows PowerShell 5.1 drops the exit code (fixed in `spikes/common.ps1`; the runs finished, since speeds were printed), and the cache hit rate column is empty because the hit-rate line was not in the logs. The likely cause is log verbosity: llama.cpp's own tuner (`scripts/moe-cache-tune.py`) runs the server with `-lv 4` before reading that line, so it is probably filtered out at the default level. That is an inference from the tuner's code, not tested; the probe now passes `-lv 4`.
 
 **What it shows:**
 
