@@ -359,7 +359,7 @@ The monitor consumes engine telemetry: per-token latency, TTFT, tok/s, VRAM and 
 
 `maltoe-ballast` is a small C++ tool with a local control port.
 
-- `--vram`: allocates GPU memory in 256 MB blocks (CUDA first, Vulkan later), touches it so it is committed, and resizes on command. The UI and the harness use it for the Live Squeeze (8 → 6 → 4 GB) and for budget simulation in baselines.
+- `--vram`: allocates GPU memory in 256 MB blocks (CUDA first, Vulkan later), and keeps rewriting it on a fixed interval (initial value 50 ms), and resizes on command. It must stay active: on Windows an idle allocation is moved out of VRAM when another program needs room, so an idle filler imposes no pressure (Feasibility Report 8.1 and 8.2). The UI and the harness use it for the Live Squeeze (8 → 6 → 4 GB) and for budget simulation in baselines.
 - `--ram`: commits and touches system RAM (`VirtualAlloc` + `VirtualLock` after raising the working-set limit). This is needed on the 32 GB PC so that the SSD tier is exercised for both MaltOE and the baselines (Req 2.6). The 16 GB laptop needs no RAM filler. **Initial value:** on the PC, the filler leaves the same available RAM the laptop has at session start, so the two machines face matching RAM pressure.
 
 Budgets are enforced in two ways:
@@ -491,7 +491,7 @@ These are invariants for property-based tests (`hypothesis`) over `SimEngineAdap
 | --- | --- | --- |
 | Package metadata invalid | validator on import | reject; error names key or tensor (Req 4.3) |
 | Narrowest config does not fit at start | start-up memory model | refuse to start; show budget, need, and what to free (Req 5.7) |
-| External VRAM grab | free-VRAM sample, `effective_budget` drop | narrowing sequence in the Joint Controller |
+| External VRAM grab | free-VRAM sample, `effective_budget` drop. On Windows no out-of-memory error arrives: the driver pages the losing program's memory and it slows 3x to 5x (Feasibility Report 8.2), so this sample is the only signal | narrowing sequence in the Joint Controller |
 | Working set overflow | pager `ws_overflow` | narrow `k` |
 | OOM in a step | engine `oom` event | abort step, roll back the partial KV position, wait for a narrower config, retry |
 | Engine crash | adapter health check, process exit | restart at a narrower config, re-run prefill on history; if the narrowest fails, report and keep history |

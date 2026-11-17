@@ -69,7 +69,7 @@
     - **Checkpoint:** the builder decides whether the overhead is acceptable. If not, evaluate Route B (Edge0-infer fork) in 1.9 before deciding.
     - _Requirements: 1.4, 1.7_
 
-  - [ ] 1.8 G4 Budget enforcement on Windows [HW-L] (probes ready: `spikes/ballast_probe/`, Step C)
+  - [x] 1.8 G4 Budget enforcement on Windows [HW-L] (done on the laptop 2026-11-17: idle filler is moved out, active filler slows the benchmark 2.8x to 5x with no error, RAM filler works; PC RAM check still open; report 8.1, 8.2) (probes ready: `spikes/ballast_probe/`, Step C)
     - Write `spikes/ballast_probe.cu`: allocate and touch N GB of VRAM, then hold it.
     - With the probe holding 2 and 4 GB, run stock llama.cpp at full offload. Record whether it fails, falls back to shared system memory, or the probe's memory gets demoted. Use Task Manager "Dedicated/Shared GPU memory" and NVML.
     - Record the NVIDIA "CUDA – Sysmem Fallback Policy" setting and its effect. Pick the setting used for all runs.
@@ -157,7 +157,7 @@
   - _Requirements: 3.1–3.5, 5.1–5.7, 7.1–7.8, 7.10_
 
 - [ ] 9. Fillers: `maltoe-ballast`
-  - [ ] 9.1 `--vram` (CUDA): allocate in 256 MB blocks, touch, resize on command over a local control port. Promote from spike 1.8.
+  - [ ] 9.1 `--vram` (CUDA): allocate in 256 MB blocks, keep rewriting the memory every 50 ms (an idle filler is moved out of VRAM by Windows; report 8.1), resize on command over a local control port. Promote from spike 1.8.
   - [ ] 9.2 `--ram`: `VirtualAlloc` + `VirtualLock`, resize on command.
   - [ ] 9.3 Harness and API integration: set filler size per run and for the squeeze schedule. Mark runs invalid if the filler cannot reach its target.
   - _Requirements: 2.2, 2.6, 7.4_

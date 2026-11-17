@@ -12,7 +12,7 @@ Evidence labels used below: **verified** means I read it in a primary source or 
 | G1 Model | Is Qwen3-30B-A3B usable? | **Decided** | Yes. Apache-2.0, config matches design.md exactly, official GGUFs exist. |
 | G2 Engine | Can the llama.cpp fork run variable-width experts and dynamic residency? | **Half answered** | Chunked experts are correct on CPU. **Upstream llama.cpp already has an expert cache that does the VRAM paging.** CUDA timings and cache behaviour need your runs (Steps A, B). |
 | G3 Width quality | Does a width-reduced Qwen3-30B-A3B stay useful? | **Waiting for hardware** | Scripts tested; Step D. |
-| G4 Budget enforcement | Do the VRAM and RAM fillers create real pressure on Windows? | **Waiting for hardware** | Probes tested; Step C. |
+| G4 Budget enforcement | Do the VRAM and RAM fillers create real pressure on Windows? | **Decided on the laptop** | An idle VRAM filler does not; an active one does, and the result is a silent slowdown, not an error. The RAM filler works. PC check pending. |
 
 ## 2. Findings that change the spec
 
@@ -304,7 +304,7 @@ Five problems per set means each difference of one problem is 20 percentage poin
 
 | Measurement | Step | Result |
 | --- | --- | --- |
-| Ballast holds VRAM; behaviour when a run exceeds free VRAM (fail, or spill to shared memory), with sysmem fallback on and off | C | **Idle filler done** (see 8.1); active filler pending |
+| Ballast holds VRAM; behaviour when a run exceeds free VRAM (fail, or spill to shared memory), with sysmem fallback on and off | C | **Done on the laptop** (see 8.1, 8.2): no failure in any case; an active filler slows the benchmark 2.8x to 5x |
 | RAM filler lowers available RAM on laptop and PC | C | **Laptop: yes** (9.88 to 6.92 GiB available with 3 GiB held, VirtualLock succeeded); PC pending |
 | Edge0 builds and runs on the RTX 4060 laptop; backend; tok/s at several `expert_slots` | E | *pending* |
 
@@ -327,6 +327,27 @@ With the 3 and 4 GiB filler the two programs asked for about 8.5 and 9.5 GB, mor
 1. **An idle filler does not create lasting pressure on Windows**, so it does not impose the 4 and 6 GB budgets on the baselines. A filler that keeps using its memory is being tested next (`ballast_probe ... touch_ms`). If Windows then moves the benchmark's memory instead, that is the realistic "another GPU app" case for the Live Squeeze.
 2. **MaltOE's own accounting stays the primary limit** on MaltOE (design.md), and baselines will need either the active filler or a configuration that fits each budget (for example `-ncmoe` chosen per budget).
 3. **For all later runs, keep "Prefer No Sysmem Fallback"** so that a CUDA allocation that cannot be met fails visibly. (Proposed; it made no difference here.)
+
+### 8.2 G4 on the laptop, active filler (2026-11-17)
+
+Same benchmark, "Prefer No Sysmem Fallback", the filler now rewriting all of its memory every 50 ms, as a game or another GPU program keeps its memory in use.
+
+| active filler | prompt tok/s | decode tok/s | run time |
+| ---: | ---: | ---: | ---: |
+| 0 GiB | 46.9 | 27.9 | 28 s |
+| 1 GiB | 48.2 | 29.1 | 32 s |
+| 2 GiB | 45.7 | 29.0 | 28 s |
+| 3 GiB | 16.0 | **10.1** | 69 s |
+| 4 GiB | 6.4 | **5.6** | 121 s |
+
+Once the two programs together needed more than the card holds, the benchmark slowed to 0.36x (3 GiB) and 0.20x (4 GiB) of its normal decode speed. Nothing failed: no out-of-memory error, even with the fallback setting that is supposed to prevent spilling, and total GPU use stayed at about 7.9 GB. Windows kept the active program's memory in VRAM and moved the benchmark's out, so the benchmark paged over PCIe.
+
+**What this settles:**
+
+1. **On Windows, running out of VRAM looks like a slowdown, not a crash.** A stock setup does not die when another program takes memory; it quietly becomes 3x to 5x slower. The handoff's Live Squeeze line ("a normal setup would die") is wrong for this machine; the honest version is "a normal setup slows to a crawl and does not know why". That is still a good demo beat, and it is measured.
+2. **MaltOE cannot wait for an out-of-memory error.** The error does not come. The controller has to act on falling free VRAM, which is what design.md already specifies (sampling free VRAM at least every 250 ms; the effective budget is the smaller of the user's budget and measured free plus MaltOE's own use). Requirement 7.9 (out-of-memory recovery) still holds, but on Windows it is a rare path, not the main one.
+3. **The filler must be active.** `maltoe-ballast --vram` (Task 9.1) keeps rewriting its memory; an idle filler gets moved out and imposes nothing. The same holds for any budget imposed on the baselines.
+4. **A detail to measure later:** whether `cudaMemGetInfo` reports the lower free VRAM while Windows is paging, so the controller sees the pressure in time. The `nvidia-smi` totals (7,924 MiB in use) suggest yes; MaltOE's monitor should log both.
 
 ## 9. Recommendation and checkpoint
 
