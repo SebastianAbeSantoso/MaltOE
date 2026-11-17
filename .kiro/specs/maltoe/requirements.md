@@ -258,6 +258,13 @@ These requirements apply throughout the spec and the write-up.
 4. THE submission SHALL be made before December 4, 2026, 2:00 PM PT (December 5, 2026, 06:00 WITA), subject to re-checking the official Devpost rules.
 5. THE builder SHALL request Kiroween Kiro credits before December 1, 2026, 12:00 PM PT.
 6. THE project SHALL record any difference between the official Devpost rules and the dates in the handoff.
+7. THE README and the submission SHALL state the intended platform (Windows 11, NVIDIA GPU with 8 GB VRAM, CUDA). THE project SHALL install and run consistently on that platform and SHALL work as shown in the video and the text description (Official Rules §4, Functionality and Platforms). Other platforms SHALL NOT be listed as supported unless tested.
+8. THE submission SHALL give judges a test build: a GitHub Release with a Windows build and Quickstart instructions, free and unrestricted. THE repository and the test build SHALL stay available until the Judging Period ends (January 29, 2027, 1:00 PM PT). THE submitted state SHALL be marked with a git tag.
+9. THE README and the submission SHALL disclose all pre-existing code and work incorporated into the project, with licenses: the llama.cpp fork and its pinned commit, the model, the evaluation datasets, the main libraries, and the handoff planning document. Each third-party component SHALL be used under its license terms (Official Rules §4, New Projects Only and Third Party Integrations).
+10. THE demo video SHALL be public on YouTube, SHALL show MaltOE running on the device it was built for (the RTX 4060 laptop), and SHALL NOT include copyrighted music, third-party logos, or other third-party trademarks or copyrighted material without permission. How product names are shown is decided by the open question in `docs/kiroween-rules.md`.
+11. THE submission SHALL include a write-up on how Kiro was used, covering each feature in the Official Rules list that was used (Kiro clients, custom agents, hooks, specs vs vibe coding, steering, MCP, property-based testing, powers), and SHALL say plainly which were not used. The write-up SHALL be kept as a running draft in `docs/submission/kiro-writeup.md` and updated during the build, not reconstructed at the end.
+12. THE submission SHALL enter the Resurrection category and the Best Student Project: Resurrection bonus prize, with the student details the form requires. Other bonus prizes (Social Blitz, Bonus Blog) are optional and decided by the builder.
+13. ALL submission deliverables SHALL be tracked in `docs/submission/deliverables.md`, with an owner and status for each.
 
 ## Resolved Decisions (approved 2026-11-11)
 

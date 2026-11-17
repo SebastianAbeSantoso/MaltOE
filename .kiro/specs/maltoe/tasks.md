@@ -192,7 +192,11 @@
   - [ ] 13.2 Prior art section citing WiSP, CRISP, Edge0, Krasis, MoSE, HydraLLM, D2MoE, MC-MoE, DyMoE, Yao et al., and DATS, with links. Every figure verified.
   - [ ] 13.3 "Old ideas in the code" section: link Liu et al. (1991) to the mandatory/optional scheduler and Denning (1968) to the working-set tracker, with code links.
   - [ ] 13.4 Limitations: memory-only tier simulation, small eval set variance, mixed-width KV after a width change, laptop GPU variant, CPU dependence of BL-2.
-  - _Requirements: 12.1–12.7_
+  - [ ] 13.5 Platform statement in the README: Windows 11, NVIDIA 8 GB, CUDA. List only tested platforms as supported (Req 15.7).
+  - [ ] 13.6 Disclosure section in the README: pre-existing code and work with licenses (llama.cpp at the pinned commit, the model, eval datasets, main libraries, the handoff document) (Req 15.9).
+  - [ ] 13.7 Finish the Kiro write-up from the running draft in `docs/submission/kiro-writeup.md` (Req 15.11). The draft is updated at every checkpoint from the start, not only here.
+  - [ ] 13.8 Text description for the submission form: features and functionality, intended platform, and how to test (Req 15.7, 15.8).
+  - _Requirements: 12.1–12.7, 15.7, 15.9, 15.11_
 
 - [ ] 14. Stretch: AMD on the PC [HW-PC]
   - [ ] 14.1 Build the engine with the Vulkan backend and run the same package. Add a Vulkan path to `maltoe-ballast --vram`.
@@ -206,6 +210,9 @@
 
 - [ ] 16. Demo and submission
   - [ ] 16.1 Script the demo: Impossible Model (BL-1 fails or crawls, then MaltOE runs), Live Squeeze (8 → 6 → 4 GB mid-conversation), quick quality check. Open with the coding task, not a graph.
-  - [ ] 16.2 Record the video, under 3 minutes.
-  - [ ] 16.3 Final compliance check: public repo, `.kiro/` committed, video link, submission before December 4, 2026, 2:00 PM PT.
-  - _Requirements: 15.1–15.4_
+  - [ ] 16.2 Record the video on the RTX 4060 laptop, under 3 minutes, with no copyrighted music and no third-party logos. Follow the answer to the trademark question in `docs/kiroween-rules.md`. Upload to YouTube as public (Req 15.3, 15.10).
+  - [ ] 16.3 Publish the test build: a GitHub Release with the Windows build and Quickstart. Test the install from the release on a clean folder on the laptop (Req 15.7, 15.8).
+  - [ ] 16.4 Fill in the submission form: Resurrection, Best Student Project: Resurrection with the student details, any optional bonus URLs, the YouTube link, the repo and release URLs, the text description and the Kiro write-up (Req 15.12).
+  - [ ] 16.5 Final compliance check against `docs/submission/deliverables.md`: public repo, MIT license detected, `.kiro/` committed on `main`, video link, release link, submission before December 4, 2026, 2:00 PM PT. Tag the submitted commit (Req 15.8).
+  - [ ] 16.6 After submitting: keep the repo and release available until January 29, 2027, 1:00 PM PT, and answer any proof-of-enrollment request in time.
+  - _Requirements: 15.1–15.4, 15.7–15.13_
