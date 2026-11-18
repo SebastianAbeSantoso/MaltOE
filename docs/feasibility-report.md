@@ -63,6 +63,7 @@ The first G0 pass searched papers and a few named systems. A GitHub search after
 | [neerajdad123-byte/moe](https://github.com/neerajdad123-byte/moe) (MIT, 9) | Qwen3.6-35B-A3B at about 68 to 78 tok/s on an RTX 4050 Laptop 6 GB (their numbers). Free VRAM becomes expert slots. `--fast` is slightly approximate. | **The "35B on a small GPU" demo already exists.** |
 | [LozzKappa/hotpin-llm](https://github.com/LozzKappa/hotpin-llm) (AGPL-3.0) | Routing-guided expert pinning, bit-identical to a full-RAM run. | Residency, lossless. |
 | giannisanni/pulsar, yairpatch/flyweight, AlphaChat-dotcom/alphallama, Kelsidavis/hydranet, IbrahimSiddiqui007/moe-cache | Expert streaming and caching engines. | Residency. |
+| [affifuddin-hazam/ghost-infer](https://github.com/affifuddin-hazam/ghost-infer) (MIT or Apache-2.0; added 2026-11-18, raised by the builder) | Rust engine for one user on one consumer NVIDIA GPU, Windows. Attention on the GPU, experts in RAM, a GPU cache of the experts "a reply keeps reaching for", the other experts run on the CPU at the same time; one CUDA graph per layer with GPU-side expert selection. A setting for how much RAM the experts may use. Its README reports, on an 8 GB RTX 2060 SUPER with 24 GB RAM, Qwen3-30B-A3B (i1-Q3_K_M, 13.7 GB) at 68.7 tok/s vs 29.5 for llama.cpp (best `--n-cpu-moe`) and 26.9 for Ollama; Qwen3.6-35B-A3B at 80.5 vs 39.5; Qwen3-Coder-Next 80B (22 GB, bigger than RAM) at 11.8 to 14.5 (their numbers, measured 2026-11-14 and 2026-11-10). Also exact speculative decoding, a desktop app and an agent. | **Residency done very well, on our exact model and OS, about twice llama.cpp's decode speed.** No width found; no live response to a changing VRAM budget found in the README. Not verified by running it. |
 
 **What I did not find in any of them:** expert **width** (a prefix of importance-ordered neurons within an expert) as a runtime knob, mandatory and optional work scheduled by an objective, or width and residency adjusted together when the budget changes. That is the same conclusion as 3.3, now across more projects. The survey covers about 14 READMEs of many more, found by keyword. A project that uses other words could exist.
 
@@ -71,6 +72,7 @@ The first G0 pass searched papers and a few named systems. A GitHub search after
 1. **Residency is not a contribution, and neither is live cache shrinking.** bnk and possibly moe-l2 do it. The README must not suggest otherwise.
 2. **Lossy knobs already exist on a different axis:** skipping tail experts (Strata, tandem.cpp) and substituting cached experts (fomoe). A width-reduced expert is only interesting if it gives a better quality-versus-compute-and-bytes curve than these. **They need to be baselines in the 2x2 envelope** (proposed, not applied): Strata's tail-skip or tandem's `--fast` at matched compute.
 3. **Demo beat 1 is weaker than the handoff assumed.** A 35B model on a 6 GB laptop GPU at chat speed is already published by others, and stock `llama.cpp --n-cpu-moe` is far from "crawls below 1 tok/s". The comparison must be against `--n-cpu-moe` plus `--moe-cache-mib`, not a naive load. Beat 2 (the live squeeze with a controlled quality trade) is the real differentiator.
+4. **ghost-infer (added 2026-11-18) sets the speed bar on our model and platform.** MaltOE is a llama.cpp fork, and its decode speed will be near llama.cpp's, so on raw tok/s it will be behind ghost-infer. MaltOE must not be pitched on speed. Qwen3-30B-A3B on an 8 GB card is also no longer a hook by itself (builder, 2026-11-18). See section 9 for the proposed response.
 
 ### 3.2c Name checks (2026-11-16)
 
@@ -437,5 +439,19 @@ Once the two programs together needed more than the card holds, the benchmark sl
 **To discuss with the builder (not yet decided): demo impact.** A 30B-class MoE running on a cheap consumer GPU is already shown by others (section 3.2b; for example Qwen3.6-35B-A3B at 68 to 78 tok/s on a 6 GB laptop GPU, per that project's README), and stock `llama.cpp --n-cpu-moe` does not "crawl below 1 tok/s". Demo beat 1 as written in the handoff will not surprise a judge who knows the field. The live squeeze with a controlled quality trade (beat 2) is the part nobody else shows. Whatever replaces beat 1 should be chosen after the Step B and Step D numbers exist, so it rests on measured results.
 
 Candidate from the builder (2026-11-16): open with the asterisk. "An 8 GB GPU can run DeepSeek V4.1*", then reveal the footnote ("* at a uselessly low tokens per second"), then "well, I won't claim that", and turn to what MaltOE does claim. It makes the honesty rules part of the pitch. Conditions: the footnote number must be a real measurement from Task 15.2 on the test laptop, or the slide must say plainly that it is a joke figure. V4.1 needs hundreds of GB of disk, and none of the handoff's V4.1 figures are verified yet.
+
+**To discuss with the builder (not yet decided, 2026-11-18): Qwen3-30B-A3B is overused, and ghost-infer is about twice as fast as llama.cpp on it** (3.2b, item 4). The repository was created 2026-10-27 and has no `.kiro` folder (GitHub API, 2026-11-18). Options:
+
+| Option | What it means | For | Against |
+| --- | --- | --- | --- |
+| A. Keep Qwen3-30B-A3B, change the pitch | The model is the test bench, not the hook. The pitch is what happens when the VRAM budget changes mid-session. | G3 data already exists (over 10 h of runs). llama.cpp and ghost-infer numbers on the same model make comparisons direct. | No surprise from the model itself. |
+| B. Switch the main model to one bigger than RAM (for example an 80B-A3B class model at about 22 GB on the 16 GB laptop) | Experts must stream from the SSD. Width reduces the bytes read per expert, so width does something residency alone can't. | The strongest case for width. | New architecture to check in the pinned llama.cpp. G3 would have to be redone on a model that streams from disk, which would take much longer than the 30B run. Larger risk with 16 days left. |
+| C. A for v1, plus a bigger-than-RAM model as a stretch closing beat | Replace or sit beside the DeepSeek V4.1 stretch (Task 15.2) with a model that fits the laptop's disk. | Keeps the schedule. A realistic closing beat. | Only happens if v1 is done early. |
+
+**Recommendation: C.** In addition, proposed spec changes (not applied):
+
+1. **ghost-infer as a baseline (BL-5)** on the laptop, same model and file, including a run under the active VRAM filler from Step C. If ghost-infer also slows down silently when another app takes VRAM, that is a fair, measured demo point. If it doesn't, the pitch has to change, and it's better to know now.
+2. **Do not claim speed** in the README or video. Report MaltOE's tok/s next to ghost-infer's and llama.cpp's as measured.
+3. **Cite ghost-infer** in the README prior-art section (Task 13.2) as residency done on the same model and platform.
 
 Open items: the CRISP source code (not released) and WiSP's behaviour under an external VRAM change (unverified). The pinned commit builds on Windows with CUDA 12.9 and MSVC 19.39 (verified on the laptop, 2026-11-16).
