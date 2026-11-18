@@ -345,6 +345,12 @@ The controller responds in this order (Req 7.4, 7.5):
 
 Widening, called regrowth (Req 7.6, 7.7), happens when `effective_budget ≥ need(k+1, WS-sized slots) · (1 + h)` holds continuously for `T_hold`, and only up to the Objective ceiling. **Initial values: `h = 10%`, `T_hold = 5 s`.** Narrowing happens immediately and widening is delayed, which gives the hysteresis.
 
+**Overload scheme (Req 7.11; Liu et al. 1991, p. 67).** The steps above are the paper's *responsive service scheme*: the reply in progress is degraded so the overload clears quickly. The paper's *guaranteed-service scheme* degrades only new work, so tasks already running finish at full quality. In MaltOE that means holding the current reply's `k` and applying the PendingConfig at the next request boundary instead of the next token.
+
+- **Why offer it:** a reply then has one width from start to end. That avoids mixing widths inside one answer's KV cache, which may matter because width errors are probably partly cumulative across tokens (`docs/theory-sources.md`). It also gives the user the paper's trade-off as a real choice.
+- **Its limit:** memory is not processor time. In the paper an overloaded task just waits; here an over-budget reply pages, which on Windows shows up as the silent slowdown from Step C (2.8–5x), not an error. So Guaranteed trades speed for one consistent width per reply. The dashboard marks the reply as over budget while it runs. If the engine reports an OOM (possible on other drivers or settings), the controller switches that reply to Responsive.
+- **Default:** Responsive, because relieving pressure is the reason MaltOE exists. Both schemes are measured in the Live Squeeze (Task 12).
+
 Latency on its own never changes width mid-session. Thrashing shows up as both latency and `ws_overflow`, and only the `ws_overflow` signal acts. This keeps Req 5.4 strict.
 
 #### Decision log (Req 7.10)

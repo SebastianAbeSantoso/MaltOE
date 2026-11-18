@@ -156,6 +156,7 @@ These requirements apply throughout the spec and the write-up.
 8. THE Runtime SHALL NOT allocate GPU memory beyond the VRAM Budget, as measured by the Runtime Monitor.
 9. IF an out-of-memory error occurs in the Engine, THEN THE Runtime SHALL record it, preserve the conversation history, narrow the configuration, and attempt to resume the session. IF resume is not possible, THEN THE Runtime SHALL report the failure and its cause to the user and SHALL keep the conversation history available.
 10. THE Runtime SHALL log every controller decision with its inputs and the resulting configuration.
+11. THE Joint Controller SHALL offer two overload schemes from Liu et al. (1991, p. 67), selectable by the user: **Responsive** (default), which narrows the reply in progress at the next Safe Boundary, and **Guaranteed**, which finishes the reply in progress at its starting width and applies the narrower width from the next reply. WHILE the Guaranteed scheme holds a reply at its width under pressure, THE Runtime SHALL show that the reply is running over budget. IF the Engine reports an out-of-memory error under the Guaranteed scheme, THEN THE Joint Controller SHALL fall back to the Responsive scheme for that reply.
 
 ### Requirement 8: Chat Interface
 

@@ -83,6 +83,15 @@
 
   - [x] 1.7b Read `src/llama-moe-cache.cpp` end to end and register one chunked layer with the cache, to settle whether chunks can be cached as extra logical layers (report section 6.5). Done 2026-11-17: chunks fit as extra experts ("pages") with almost no cache change, not as extra layers; remaining gaps are resize, live counters, and the working-set policy (report 6.6e).
   - [ ] 1.7c [HW-L] Run `chunked_moe --pages` on CUDA (decode and prefill) to see whether the pages layout removes the chunking price (report 6.6e).
+  - [ ] 1.11 Theory checks: test the two papers' own predictions on our data (sources and labels: `docs/theory-sources.md`)
+    - [ ] 1.11a Routing-trace tool: record the experts each token selects, per layer, through llama.cpp's eval callback, without patching the engine. Test on the CPU in the sandbox with a small MoE model.
+    - [ ] 1.11b [HW-L] Record one trace of Qwen3-30B-A3B on the frozen coding and reasoning prompts (about 20 minutes).
+    - [ ] 1.11c Denning P1, in the sandbox: working-set size ω(τ) in pages and bytes at k = 3, 2, 1. Check "monotonically increasing and concave downward".
+    - [ ] 1.11d Denning P3 and eq. 7, in the sandbox: the reentry rate from the trace against measured upload bytes per token (report 6.6d), and e(m) = 1/(1 + mT) with the measured miss rate and page time against measured tok/s.
+    - [ ] 1.11e Working-set eviction against llama.cpp's frequency-and-recency policy on the same trace, at matched cache sizes (Denning, FJCC 1968, on global policies).
+    - [ ] 1.11f Liu monotone and error: perplexity against k and importance mass kept (from G3); whether the importance-ordered k = 1 beats random k = 1; the shape of the error curve (convex or concave).
+    - Report each check as holds, fails, or not tested. A failed prediction is reported, not hidden.
+    - _Requirements: 12.3, 12.5_
   - [ ] 1.10 Write the Feasibility Report and recommend a route
     - Give pass or fail per gate, with evidence. Name one route and one model. State the chosen engine (A or B) and why. Give the final novelty claim. List open risks.
     - **Checkpoint:** the builder approves the route before Task 2.
@@ -154,8 +163,9 @@
   - [ ] 8.6 Joint Controller, session start: startup probe at k = 1..3, Objective rules (Quality / Balanced with `D_bal` / Speed capped at C − 1), refusal when nothing fits.
   - [ ] 8.7 Joint Controller, mid-session: the narrowing sequence (shrink cold slots → narrow k → trim to minimum → stop and report), widening with `h` and `T_hold`, memory-pressure signals only.
   - [ ] 8.8 Runtime Monitor (250 ms frames) and JSON-lines decision log.
+  - [ ] 8.10 Overload scheme setting (Req 7.11): Responsive (default) and Guaranteed (apply PendingConfig at the next request boundary; mark the reply over budget; fall back to Responsive on OOM). Log the scheme in every decision.
   - [ ] 8.9 Property tests (hypothesis) on `SimEngineAdapter` for Properties 1, 5, 6, 7, and 8.
-  - _Requirements: 3.1–3.5, 5.1–5.7, 7.1–7.8, 7.10_
+  - _Requirements: 3.1–3.5, 5.1–5.7, 7.1–7.8, 7.10, 7.11_
 
 - [ ] 9. Fillers: `maltoe-ballast`
   - [ ] 9.1 `--vram` (CUDA): allocate in 256 MB blocks, keep rewriting the memory every 50 ms (an idle filler is moved out of VRAM by Windows; report 8.1), resize on command over a local control port. Promote from spike 1.8.
