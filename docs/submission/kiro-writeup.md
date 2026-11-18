@@ -20,6 +20,8 @@ Last updated: 2026-11-17.
   - The builder approved nine spec changes from the Task 1 checkpoint in one decision ("yes to all"). They were applied to requirements, design and tasks together, so the three files stay consistent.
 - **Spec vs vibe coding:** *(builder to write: how this compared for you)*.
 
+- **The gate did its job (2026-11-19).** The spec put a falsification test before any engine work: does a narrower expert beat a lower-bit file at the same bytes? It doesn't (width 75%: 1.16x perplexity; Q3_K_M at the same expert bytes: 1.006x). The project found this after about two days of laptop runs, not after building the engine. *(Builder: add how this changed the project once the 1.10 decision is made.)*
+
 ## Steering
 
 `.kiro/steering/`:

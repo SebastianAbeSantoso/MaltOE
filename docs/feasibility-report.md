@@ -11,7 +11,7 @@ Evidence labels used below: **verified** means I read it in a primary source or 
 | G0 Novelty | Does existing work already adapt width and residency together, online, under a changing memory budget with a user objective? | **Decided** | Not found. Claim stands as approved. Three prior-art additions needed in the README (section 3). |
 | G1 Model | Is Qwen3-30B-A3B usable? | **Decided** | Yes. Apache-2.0, config matches design.md exactly, official GGUFs exist. |
 | G2 Engine | Can the llama.cpp fork run variable-width experts and dynamic residency? | **Half answered** | Chunked experts are correct on CPU. **Upstream llama.cpp already has an expert cache that does the VRAM paging.** CUDA timings and cache behaviour need your runs (Steps A, B). |
-| G3 Width quality | Does a width-reduced Qwen3-30B-A3B stay useful? | **Partial pass** (section 7; decision at 1.10) | k = 2 (67%): perplexity 1.25x, coding 3/5 vs 4/5, reasoning 5/5. k = 1 (33%): 2.31x, 0/10, fails. Random k = 1: 11.7x, so importance ordering matters. Next: C = 4 emulation and the quant comparison. |
+| G3 Width quality | Does a width-reduced Qwen3-30B-A3B stay useful, and is it a good trade? | **Usable, but loses to lower-bit files** (sections 7.1–7.3; decision at 1.10) | Width 75%: 1.16x perplexity. Q3_K_M at the same expert bytes: 1.006x. Q2_K at fewer bytes than width 67%: 1.08x vs 1.25x. Width is not a good way to save bytes. |
 | G4 Budget enforcement | Do the VRAM and RAM fillers create real pressure on Windows? | **Decided on the laptop** | An idle VRAM filler does not; an active one does, and the result is a silent slowdown, not an error. The RAM filler works. PC check pending. |
 
 ## 2. Findings that change the spec
@@ -417,6 +417,35 @@ Matched pairs by routed-expert bytes:
 
 **What width offers that a quant doesn't, whatever the result:** width also cuts compute per token by the same fraction (a lower-bit file reads fewer bytes but does the same multiplications), it switches during a session without reloading, and it can be applied on top of a lower-bit file. Static quality per byte is the one question this test answers.
 
+### 7.3 Width against lower-bit files: results (Task 1.5c, 2026-11-19)
+
+Same text, chunks and flags as G3 (`-c 512 --chunks 64 -ngl 99 -ncmoe 48`), laptop.
+
+| Option | Routed-expert bytes | wikitext-2 perplexity | vs its own Q4_K_M |
+| --- | --- | --- | --- |
+| bartowski Q4_K_M (imatrix) | 17.55 GB | 8.9700 ± 0.2155 | 1.00x |
+| **bartowski Q3_K_M** | **13.10 GB** | **9.0258 ± 0.2147** | **1.006x** |
+| bartowski Q2_K | 10.00 GB | 9.6748 ± 0.2323 | 1.079x |
+| Qwen Q4_K_M (no imatrix), full width | 17.55 GB | 9.2921 ± 0.2223 | 1.00x |
+| **width 75% (C = 4, k = 3)** | **13.16 GB** | **10.738 ± 0.261** | **1.156x** |
+| width 67% (C = 3, k = 2) | 11.70 GB | 11.613 ± 0.283 | 1.250x |
+| width 50% (C = 4, k = 2) | 8.78 GB | 14.685 ± 0.365 | 1.580x |
+
+**Width loses to lower-bit files on static quality per byte, by a wide margin.**
+
+- At matched expert bytes (about 13.1 GB), Q3_K_M costs 0.6% in perplexity, inside the error bars. Width 75% costs 15.6%, well outside them.
+- Q2_K is smaller than width 67% (10.0 vs 11.7 GB) and still costs less (7.9% vs 25%).
+- The comparison is within each publisher, so the imatrix difference doesn't explain it. bartowski's imatrix Q4_K_M is itself 3.5% better than Qwen's official Q4_K_M (8.97 vs 9.29).
+- Only perplexity was measured for the quant files. The coding and reasoning counts weren't run, but the perplexity gap is far larger than the noise.
+
+**What this rules out:** the handoff's premise that a narrower expert is a good way to spend fewer bytes. For a user who just wants the model to fit, the right answer is a lower-bit file, not MaltOE's width. Width's remaining arguments are weak:
+- **Compute per token:** decode is memory-bound on the GPU, and the CUDA spike already showed width at k = 2 slower than the stock expert (6.6a).
+- **Live switching without reloading:** real, but the same could be done with precision instead of width.
+
+**Side observation (uncontrolled):** time per perplexity pass was 67 s for Q4_K_M, 54 s for Q3_K_M and 13 s for Q2_K. The Q2_K file (10.9 GB) roughly fits in free RAM, and the others don't, which matches the RAM limit from 6.6c. Not a controlled speed measurement.
+
+**Gate consequence (proposed, for the builder at 1.10): the width route fails the advantage test.** Per the stop rule in the advantage plan, the decision at 1.10 is whether to pivot, before any engine work. Section 9 lists the options.
+
 **Earlier partial-results notes:**
 
 - **k = 2 costs 25% in perplexity** (9.29 to 11.61). The two error bars don't overlap, so this is a real loss, not noise. Wikitext-2 perplexity is a general-text measure; how much 25% matters for the demo task is what the coding and reasoning counts are for.
@@ -509,5 +538,15 @@ Candidate from the builder (2026-11-16): open with the asterisk. "An 8 GB GPU ca
 1. **ghost-infer as a baseline (BL-5)** on the laptop, same model and file, including a run under the active VRAM filler from Step C. If ghost-infer also slows down silently when another app takes VRAM, that is a fair, measured demo point. If it doesn't, the pitch has to change, and it's better to know now.
 2. **Do not claim speed** in the README or video. Report MaltOE's tok/s next to ghost-infer's and llama.cpp's as measured.
 3. **Cite ghost-infer** in the README prior-art section (Task 13.2) as residency done on the same model and platform.
+
+**Decision needed at 1.10 (2026-11-19): what to do now that width loses to lower-bit files** (7.3). Options:
+
+| Option | What changes | For | Against |
+| --- | --- | --- | --- |
+| A. Keep width, narrow the claim to live switching | Width only as the live squeeze lever; README says plainly that a lower-bit file is better for a static fit | No re-plan | The core mechanism is shown to be inferior. Weak for Impact and Innovation. |
+| **B. Make precision the knob: each expert has a Q2 version and a Q4 version** | Liu et al.'s **multiple-version method** (1991, p. 59): the alternate version (Q2_K) is the mandatory work, the primary (Q4_K) adds the optional work, under the 0/1 constraint. The controller moves experts between precisions and between VRAM, RAM and SSD as the live VRAM budget changes. Denning's working set is unchanged; pages become (expert, precision). | Measured: Q2_K costs only 7.9% for 57% of the bytes. Keeps the joint controller, the live squeeze and both papers, and fits the paper more directly than width did. | **Prior art is closer:** DyMoE (runtime per-expert mixed precision with a mixed-precision VRAM cache, driven by importance), MatMoE (nested precision tuned to a latency target), D2MoE. The claim must be the live VRAM-budget response combined with residency. Whether DyMoE reacts to budget changes needs a full read. Engineering: llama.cpp tensors have one type, so a Q2 bank and a Q4 bank per layer need a spike like 1.7b. |
+| C. Stop the custom runtime | Ship a controller around stock files (switch files on pressure, with a reload) | Least work | The reload is exactly the stall the project set out to avoid. |
+
+Recommendation: **B**, with a short feasibility spike first (two expert banks of different types in one MoE layer on the pinned llama.cpp, and a full read of DyMoE's runtime policy). Nothing here is applied to the spec until the builder decides.
 
 Open items: the CRISP source code (not released) and WiSP's behaviour under an external VRAM change (unverified). The pinned commit builds on Windows with CUDA 12.9 and MSVC 19.39 (verified on the laptop, 2026-11-16).
