@@ -68,6 +68,10 @@ Each item has the evidence in the report or the commit history.
 - Windows PowerShell 5.1 lost child exit codes, so failed runs showed as `FAIL(exit )`. Fixed in `spikes/common.ps1`.
 - Early CUDA timings were unreliable. Kiro changed the timing method and the rerun gave stable numbers.
 
+## Where Kiro got it wrong
+
+- The G3 width-quality script (`run_g3.ps1`) estimated "an hour to several hours". On the laptop it took well over 10 hours, because the model is larger than free RAM and every expert ran on the CPU. Kiro had already measured that RAM limit in Step B but didn't use it to size this run. The partial results were still recorded as they came in (report section 7).
+
 ## Research with Kiro
 
 - Web search and fetch for prior art (WiSP, CRISP, MoSE, Edge0 and others), a survey of similar GitHub projects (feasibility report 3.2b), toolchain compatibility (CUDA 12.9 vs 13, MSVC versions), and the name check that led to the rename from Molt to MaltOE. NVIDIA already has a "Molt" project.
