@@ -223,6 +223,11 @@
     - Run: build on Linux; convert (importance run, package); the 2x2 at one budget; the Live Squeeze with the active VRAM filler. On Linux, running out of VRAM should give an OOM error, not the Windows slowdown, so this also tests Req 7.9 recovery. Record the machine manifest.
     - Cost (estimate): one H100 80 GB at about $1.4–3.5 per hour on marketplace clouds ([IntuitionLabs](https://intuitionlabs.ai/articles/h100-rental-prices-cloud-comparison), [Jarvislabs](https://docs.jarvislabs.ai/blog/h100-price), Nov 2026), plus storage. Expect about 6–12 hours with downloads, so about $10–40. Re-check prices before renting.
     - Claim only what was run. "The same controller ran Qwen3-235B-A22B on one 80 GB GPU", not "scales to frontier models". The video's main demo stays on the laptop (Official Rules: show the device it was built for); the cloud result goes in the README and at most one closing slide, labelled with the hardware.
+  - [ ] 15.4 Width for shared (always-on) experts, for architectures that have them (DeepSeek, Qwen3.5/3.6 MoE, GLM-4 MoE; Qwen3-30B-A3B has none). Proposed by the builder 2026-11-18.
+    - Default stays full width: the shared expert runs on every token and is mandatory work.
+    - Option: chunk it like a routed expert (importance from the same imatrix run), so chunk 1 is mandatory and the rest optional. It is always resident, so narrowing saves compute and its own VRAM, but no residency.
+    - Measure separately from routed width: perplexity with only the shared expert narrowed, at k = 2 and 1. Expect a larger quality cost per neuron dropped, because every token uses it (to verify).
+    - The width patch must be in the shared `build_ffn` path that `ffn_*_shexp` uses, as well as `build_moe_ffn`.
   - _Requirements: 4.5, 14.1–14.3_
 
 - [ ] 16. Demo and submission
