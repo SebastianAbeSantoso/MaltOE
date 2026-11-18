@@ -61,6 +61,28 @@ The columns follow MaltOE's claim, one part at a time:
 | --- | --- | --- | --- | --- | --- | --- |
 | MaltOE | Y | llama.cpp MoE cache, extended with chunk pages and resize | **expert width without training** (importance-ordered thirds) | per session, and at Safe Boundaries under memory pressure | planned | **planned:** width and residency moved together, steered by a user Objective |
 
+## How ghost-infer gets about 2x llama.cpp (read 2026-11-18)
+
+Sources: its `docs/how-it-works.md`, `docs/benchmarks.md`, and `src/cuda.rs` at commit `052626b`. Not run.
+
+1. **Experts are split per expert, not per layer.** llama.cpp's `--n-cpu-moe 24` (their best sweep setting) puts *all* experts of 24 layers in RAM. ghost-infer keeps attention and the router of every layer on the GPU, the experts in RAM, and about a third of them in a VRAM cache. The cache holds the experts a reply keeps using: eviction is least-recently-picked, with a frequency check before replacing.
+2. **No CPU round trip to route.** Each layer is one CUDA graph that also runs top-k on the GPU (`moe_topk`) and reads the cache's slot table from mapped memory. Cached experts start at once. The CPU waits on a flag in mapped memory, computes only the uncached experts, and leaves its sum for the next layer's graph to add in. That is one launch per layer, with GPU and CPU experts running in parallel. In llama.cpp's MoE cache, by contrast, there is one GPU sync per MoE layer (our report 6.6e).
+3. **The cache fills from use, in the background.** An expert the CPU had to run is copied into the cache on a separate stream, at most `uploads_per_token` per token. A miss is never uploaded and waited for. Our B2 run of llama.cpp's cache with CPU share 0 uploaded about 350 MB per token.
+4. **Fast kernels and less VRAM spent on KV.**
+   - dp4a matrix-vector kernels at 84–97% of DRAM bandwidth (their figure, 8B model), and fused norm/SiLU kernels that write int8 directly.
+   - An int8 KV cache that grows with the conversation in 4,096-token steps; until it's needed, that memory holds experts.
+   - CPU expert threads spin on cores of their own.
+5. **Benchmark conditions.**
+   - Q3_K_M files (13.7 GB), on a 24 GB RAM machine where the whole model fits in RAM. Before their RAM upgrade (16 GB), the same model ran at 38.0 vs 23.7 tok/s: 1.6x, not 2.3x.
+   - Speed depends on the text, 50–81 tok/s across their prompts, because cache hits depend on which experts a reply uses.
+   - **The cache only covers layers with Q3_K gate/up and Q4_K down** (source comment on `ExpertCache`). Our Q4_K_M file stores gate/up as Q4_K, so it would likely miss the cache path. Unverified until run.
+
+**What this means for MaltOE:**
+- Items 1–4 are residency and kernel engineering, the part we don't claim, and they're orthogonal to width.
+- Width would stack with them: narrower experts make each cache slot smaller, so more experts fit in the same VRAM and the hit rate goes up.
+- Item 2 is the one llama.cpp gap worth fixing ourselves if it's cheap: upstream has PR #32076 on the per-layer sync.
+- Our laptop (16 GB RAM, Q4_K_M at 18.6 GB) is closer to their pre-upgrade setup, so expect their 1.6x figure there, not 2.3x.
+
 ## What the matrix says
 
 1. **Speed is taken.** ghost-infer, Krasis and FreeToken are purpose-built, Windows-ready and fast. ghost-infer reports 2.3x llama.cpp on our exact model. MaltOE, as a llama.cpp fork, should never be pitched on tok/s.
