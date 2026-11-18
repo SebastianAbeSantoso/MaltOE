@@ -76,6 +76,8 @@ The first G0 pass searched papers and a few named systems. A GitHub search after
 
 5. **Landscape matrix (2026-11-18):** [`landscape-matrix.md`](landscape-matrix.md) compares about 30 engines and papers on residency, lossy knob, runtime adaptation and live VRAM response. New prior art found there: **MatMoE** (ICCAD 2026, nested per-expert precision tuned live to a latency target, on llama.cpp), **FreeToken** (runtime VRAM re-allocation between expert cache and KV), and **Krasis** (VRAM pressure detection). Proposed, not applied: cite all three, drop the precision-skin stretch or credit it to MatMoE, and test ghost-infer, Krasis and FreeToken under the active VRAM filler.
 
+6. **Not tied to Qwen3 (2026-11-18).** At the pinned commit, the routed-expert FFN of 72 of 182 model files goes through one shared function, `build_moe_ffn`, including DeepSeek 4.1 (`deepseek41`), Qwen3.5/3.6 MoE, GLM-4 MoE, MiniMax-M3 and Kimi-K3.1. If the width patch lives there, porting to another architecture is loader, converter and block-size work, not a redesign. What limits DeepSeek V4.1 is hardware (model size against 16 GB of RAM) and unverified file details, not the method.
+
 ### 3.2c Name checks (2026-11-16)
 
 | Name | Finding |

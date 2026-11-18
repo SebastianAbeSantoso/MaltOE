@@ -132,6 +132,7 @@
 
 - [ ] 6. maltoe-engine: width control (enables configs A and B)
   - [ ] 6.1 Patch the loader to recognise `maltoe.*` keys and chunk tensors for `qwen3moe`.
+  - Placement rule (2026-11-18): put the width logic in the shared `llm_graph_context::build_moe_ffn` (`src/llama-graph.cpp`), not in `src/models/qwen3moe.cpp`. At the pin, 72 of 182 model files call that function, including `deepseek41`, `qwen35moe`, `glm4-moe`, `minimax-m3` and `kimi-k31`, so other MoE architectures then need only loader keys, the converter's tensor names, and a check that the chunk size is a whole number of quant blocks. Shared experts stay mandatory work (full width).
   - [ ] 6.2 Patch the graph builder to replace the fused MoE FFN with the chunk loop over `j < k`, applying router weights once after the chunk sum.
   - [ ] 6.3 Add the control endpoint (`/maltoe/config`, `/maltoe/state`, `/maltoe/telemetry`) and the `PendingConfig` atomic swap, applied at Safe Boundaries (between decode steps, between prefill micro-batches, prefill to decode). Emit `config_applied`.
   - [ ] 6.4 Add per-token telemetry: latency, VRAM used, k.
