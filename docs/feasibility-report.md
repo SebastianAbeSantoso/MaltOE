@@ -381,6 +381,42 @@ Five problems per set means each difference of one problem is 20 percentage poin
 2. **Fallback 6 applies: test C = 4** (25 / 50 / 75 / 100%). It adds 75% and 50% steps. The emulation needs no new block types (rows are zeroed), so it runs now with `-Variants c4k3,c4k2 -SkipImatrix` (about 3 h; imatrix reused). Real C = 4 packages need 32-element block types for the down projection (q8_0 etc.), as already noted.
 3. **The quant comparison becomes the deciding test** (advantage plan, test 2). At 67% width the expert bytes drop by a third for 1.25x perplexity. A Q3_K_M file is also about a quarter smaller than Q4_K_M. If a lower-bit file costs less quality at similar bytes, width's static case is lost and its only advantage is switching live without reloading. Not measured yet.
 
+### 7.1 C = 4 emulation (Task 1.5b, 2026-11-19)
+
+Same method, imatrix reused, four chunks of 192 neurons.
+
+| Width | Variant | wikitext-2 perplexity | vs full | Coding (n/5) | Reasoning (n/5) | Importance mass kept |
+| --- | --- | --- | --- | --- | --- | --- |
+| 100% | k3 | 9.292 ± 0.222 | 1.00x | 4/5 | 5/5 | 100% |
+| 75% | c4k3 | 10.738 ± 0.261 | 1.16x | 3/5 | 4/5 | 83.0% |
+| 67% | k2 | 11.613 ± 0.283 | 1.25x | 3/5 | 5/5 | 76.5% |
+| 50% | c4k2 | 14.685 ± 0.365 | 1.58x | 2/5 | 3/5 | 62.4% |
+| 33% | k1 | 21.498 ± 0.546 | 2.31x | 0/5 | 0/5 | 46.5% |
+
+- **Monotone across all five widths** (theory check 1.11f holds), and the curve is smooth: chunk size doesn't change the trend.
+- **75% costs 16% in perplexity**, the cheapest step measured. 50% costs 58% and loses problems; whether that is "acceptable" (mandatory) is a builder decision at 1.10.
+- The coding and reasoning counts move by one or two problems between neighbouring widths. With 5 problems per set that is within noise.
+- **Caveat for real C = 4 packages:** 192-neuron chunks split each 768-element down-projection row into pieces that aren't a whole number of 256-element K-quant blocks. A real package needs a 32-element block type for `ffn_down_exps` (Q8_0, Q5_0, Q4_0 or IQ4_NL). The emulation kept the file's Q4_K/Q6_K down weights, so a real C = 4 package will have different down-projection bytes and possibly different quality. C = 3 (256-neuron chunks) has no such problem.
+
+### 7.2 Width against lower-bit files: setup (Task 1.5c)
+
+Routed-expert bytes, read from each file's GGUF header (2026-11-19):
+
+| File | Total | Routed experts | Expert types (gate, up / down) | Importance matrix |
+| --- | --- | --- | --- | --- |
+| Qwen official Q4_K_M (our base) | 18.55 GB | 17.55 GB | Q4_K / half Q4_K, half Q6_K | **none** in metadata |
+| bartowski Q4_K_M | 18.63 GB | 17.55 GB | same layout | yes (`calibration_datav3`, 209 chunks) |
+| bartowski Q3_K_M | 14.07 GB | 13.10 GB (74.6%) | Q3_K / half Q3_K, half Q4_K | yes |
+| bartowski Q2_K | 10.90 GB | 10.00 GB (57.0%) | Q2_K / half Q2_K, half Q3_K | yes |
+
+Matched pairs by routed-expert bytes:
+- **Q3_K_M (13.10 GB) against width 75% (13.16 GB).** Almost exactly the same bytes, so this is the cleanest comparison.
+- **Q2_K (10.00 GB) between width 67% (11.70 GB) and 50% (8.78 GB).**
+
+**Confound:** bartowski's files were quantized with an importance matrix and Qwen's official Q4_K_M was not. An importance matrix helps low-bit files the most, so comparing bartowski Q3 directly against our 9.29 baseline would favour the quant. The fair test compares ratios within one publisher: width's cost is c4k3 / k3 on the Qwen file (1.16x); the quant's cost is bartowski Q3_K_M / bartowski Q4_K_M. That needs a perplexity run of bartowski Q4_K_M too.
+
+**What width offers that a quant doesn't, whatever the result:** width also cuts compute per token by the same fraction (a lower-bit file reads fewer bytes but does the same multiplications), it switches during a session without reloading, and it can be applied on top of a lower-bit file. Static quality per byte is the one question this test answers.
+
 **Earlier partial-results notes:**
 
 - **k = 2 costs 25% in perplexity** (9.29 to 11.61). The two error bars don't overlap, so this is a real loss, not noise. Wikitext-2 perplexity is a general-text measure; how much 25% matters for the demo task is what the coding and reasoning counts are for.

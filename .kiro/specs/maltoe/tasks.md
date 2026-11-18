@@ -83,8 +83,8 @@
 
   - [x] 1.7b Read `src/llama-moe-cache.cpp` end to end and register one chunked layer with the cache, to settle whether chunks can be cached as extra logical layers (report section 6.5). Done 2026-11-17: chunks fit as extra experts ("pages") with almost no cache change, not as extra layers; remaining gaps are resize, live counters, and the working-set policy (report 6.6e).
   - [ ] 1.7c [HW-L] Run `chunked_moe --pages` on CUDA (decode and prefill) to see whether the pages layout removes the chunking price (report 6.6e).
-  - [ ] 1.5b [HW-L] C = 4 width emulation (fallback 6): `run_g3.ps1 -SkipImatrix -Variants c4k3,c4k2` (75% and 50%), about 3 h with the imatrix reused.
-  - [ ] 1.5c [HW-L] Quant comparison (advantage test 2): perplexity of Q3_K_M and Q2_K files of Qwen3-30B-A3B with the same text and chunks as G3, against k = 2 at similar expert bytes. Decides whether width beats a smaller file on static quality.
+  - [x] 1.5b [HW-L] C = 4 width emulation (fallback 6): `run_g3.ps1 -SkipImatrix -Variants c4k3,c4k2` (75% and 50%). Done 2026-11-19: 75% at 1.16x perplexity, 50% at 1.58x (report 7.1).
+  - [ ] 1.5c [HW-L] Quant comparison (advantage test 2): perplexity of bartowski's Q4_K_M, Q3_K_M and Q2_K files of Qwen3-30B-A3B with the same text and chunks as G3. Compare the Q3/Q4 ratio with width 75% (matched expert bytes) and Q2 with widths 67% and 50%. bartowski's Q4_K_M is needed because his files use an importance matrix and Qwen's official file doesn't (report 7.2).
   - [ ] 1.11 Theory checks: test the two papers' own predictions on our data (sources and labels: `docs/theory-sources.md`)
     - [ ] 1.11a Routing-trace tool: record the experts each token selects, per layer, through llama.cpp's eval callback, without patching the engine. Test on the CPU in the sandbox with a small MoE model.
     - [ ] 1.11b [HW-L] Record one trace of Qwen3-30B-A3B on the frozen coding and reasoning prompts (about 20 minutes).
