@@ -26,7 +26,7 @@ describe('App', () => {
   it('always shows the product name and tagline', () => {
     vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise(() => {})))
     render(<App />)
-    expect(screen.getByRole('heading', { name: 'Molt' })).toBeInTheDocument()
-    expect(screen.getByText(/One model, any GPU/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'MaltOE' })).toBeInTheDocument()
+    expect(screen.getByText('Room to grow.')).toBeInTheDocument()
   })
 })

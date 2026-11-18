@@ -48,6 +48,9 @@ function Invoke-Measured {
     if ($script:IsWin) { $sp.NoNewWindow = $true }
     $t0 = Get-Date
     $p = Start-Process @sp
+    # Windows PowerShell 5.1 leaves ExitCode empty unless the process handle was read while the process
+    # was still running. Without this line every run reports "exit " with no code.
+    $null = $p.Handle
 
     $diskBytes = 0.0; $minAvail = $null; $maxShared = $null; $timedOut = $false
     while (-not $p.WaitForExit(1000)) {

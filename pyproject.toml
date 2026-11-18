@@ -1,5 +1,5 @@
 [project]
-name = "molt"
+name = "maltoe"
 version = "0.1.0"
 description = "Hardware-adaptive local inference for Mixture-of-Experts models (codename ELASTIC)"
 readme = "README.md"

@@ -3,7 +3,7 @@
 SSD tier is exercised on a machine with plenty of memory (the 32 GB PC)?
 
 Commits and touches N GiB, locks it with VirtualLock on Windows so the OS cannot page it out,
-and reports how much RAM the OS says is still available (what Molt will size its RAM tier from).
+and reports how much RAM the OS says is still available (what MaltOE will size its RAM tier from).
 
 Usage:
     uv run --with psutil python ram_probe.py 12          # hold 12 GiB until Enter is pressed

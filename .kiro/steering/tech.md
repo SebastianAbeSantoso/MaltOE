@@ -8,11 +8,11 @@ inclusion: always
 
 | Part | Technology |
 | --- | --- |
-| Inference engine | llama.cpp fork at a pinned commit (`engine/LLAMA_CPP_COMMIT`), C++17, CMake. New code in `engine/molt/`, hooks in `engine/patches/*.patch`. Fallback engine: Edge0-infer fork, only if the Feasibility Report chooses it. |
+| Inference engine | llama.cpp fork at a pinned commit (`engine/LLAMA_CPP_COMMIT`), C++17, CMake. New code in `engine/maltoe/`, hooks in `engine/patches/*.patch`. Fallback engine: Edge0-infer fork, only if the Feasibility Report chooses it. |
 | GPU backends | CUDA (primary, RTX 4060 laptop). Vulkan (stretch, RX 6650 XT PC). CPU backend for CI. |
 | Runtime core | Python 3.12, `uv`, FastAPI, pydantic v2, `psutil`, `pynvml` |
 | Tests | `pytest`, `hypothesis` (Python); CTest (engine); `vitest` (web) |
-| Lint and format | `ruff check`, `ruff format` (Python); `eslint` (web); `clang-format` with the llama.cpp style for `engine/molt/` |
+| Lint and format | `ruff check`, `ruff format` (Python); `eslint` (web); `clang-format` with the llama.cpp style for `engine/maltoe/` |
 | Web UI | React, Vite, TypeScript, served as static files by FastAPI. No external CDNs: the app must work offline. |
 | Model tooling | `gguf-py`, `llama-imatrix`, `llama-quantize`, `llama-perplexity` from the pinned commit |
 | CI | GitHub Actions: Python lint and tests, CPU-only engine build and CTest, web lint and tests |
@@ -25,11 +25,11 @@ These commands work once Task 2 scaffolding exists.
 uv sync                                  # install Python deps
 uv run ruff check . && uv run ruff format --check .
 uv run pytest -q                         # unit + property tests (no GPU needed)
-uv run python -m molt.server             # start molt-core on 127.0.0.1
+uv run python -m maltoe.server             # start maltoe-core on 127.0.0.1
 cd web && npm ci && npm run lint && npx vitest --run
 python engine/build.py --backend cpu     # fetch llama.cpp at pinned commit, patch, build
 python engine/build.py --backend cuda    # on the Windows laptop
-ctest --test-dir engine/build/cpu -L molt
+ctest --test-dir engine/build/cpu -L maltoe
 ```
 
 Never run watch modes (`vitest` without `--run`, `npm run dev`) in the Kiro sandbox.
@@ -48,6 +48,6 @@ Never run watch modes (`vitest` without `--run`, `npm run dev`) in the Kiro sand
 - Per-token work lives in C++. Policy lives in Python and reaches the engine only as a `PendingConfig`, applied at the next Safe Boundary. Python never blocks the decode loop.
 - The controller never receives token ids, text, or logits. Do not add them to any controller input type.
 - Expert top-K is fixed. Width changes only at Safe Boundaries, and only in response to memory pressure.
-- Keep patches to llama.cpp minimal. Put logic in `engine/molt/` and keep the patch to the hook points.
-- Every tunable in design.md marked **initial value** lives in one config module (`molt/defaults.py`), with a comment pointing to design.md. Do not scatter magic numbers.
+- Keep patches to llama.cpp minimal. Put logic in `engine/maltoe/` and keep the patch to the hook points.
+- Every tunable in design.md marked **initial value** lives in one config module (`maltoe/defaults.py`), with a comment pointing to design.md. Do not scatter magic numbers.
 - Secrets: none expected. Never commit model weights, tokens, or machine-specific paths.

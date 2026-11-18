@@ -1,4 +1,4 @@
-# Feasibility Report: Molt Task 1
+# Feasibility Report: MaltOE Task 1
 
 Status as of 2026-11-16: **research gates decided; hardware gates waiting for your runs.** Gates G0 and G1 and the candidate review are complete. G2 is half answered and its main finding changes the engine plan. G3 and G4 need the laptop (instructions in [`spikes/README.md`](../spikes/README.md)).
 
@@ -11,17 +11,17 @@ Evidence labels used below: **verified** means I read it in a primary source or 
 | G0 Novelty | Does existing work already adapt width and residency together, online, under a changing memory budget with a user objective? | **Decided** | Not found. Claim stands as approved. Three prior-art additions needed in the README (section 3). |
 | G1 Model | Is Qwen3-30B-A3B usable? | **Decided** | Yes. Apache-2.0, config matches design.md exactly, official GGUFs exist. |
 | G2 Engine | Can the llama.cpp fork run variable-width experts and dynamic residency? | **Half answered** | Chunked experts are correct on CPU. **Upstream llama.cpp already has an expert cache that does the VRAM paging.** CUDA timings and cache behaviour need your runs (Steps A, B). |
-| G3 Width quality | Does a width-reduced Qwen3-30B-A3B stay useful? | **Waiting for hardware** | Scripts tested; Step D. |
-| G4 Budget enforcement | Do the VRAM and RAM fillers create real pressure on Windows? | **Waiting for hardware** | Probes tested; Step C. |
+| G3 Width quality | Does a width-reduced Qwen3-30B-A3B stay useful, and is it a good trade? | **Usable, but loses to lower-bit files** (sections 7.1–7.3; decision at 1.10) | Width 75%: 1.16x perplexity. Q3_K_M at the same expert bytes: 1.006x. Q2_K at fewer bytes than width 67%: 1.08x vs 1.25x. Width is not a good way to save bytes. |
+| G4 Budget enforcement | Do the VRAM and RAM fillers create real pressure on Windows? | **Decided on the laptop** | An idle VRAM filler does not; an active one does, and the result is a silent slowdown, not an error. The RAM filler works. PC check pending. |
 
 ## 2. Findings that change the spec
 
 These need your decision at the checkpoint (section 9). I have not edited `requirements.md` or `design.md`.
 
-1. **llama.cpp already contains a working-set-style expert cache.** `--moe-cache-mib` (marked EXPERIMENTAL in `include/llama.h`) keeps frequently and recently used experts of host-resident layers in a VRAM buffer, uploads only the missing ones, and hooks into `build_moe_ffn`. This removes the biggest risk in design.md (hand-building the per-layer slot remap and host sync) but means Molt extends someone else's cache. It also means the strongest stock baseline is `--n-cpu-moe` **plus** `--moe-cache-mib`, which Req 2.1 and Req 10.8 do not yet name. Details in section 6.
-2. **The RAM and SSD tiers would be the operating system's page cache**, not a Molt-managed cache, unless we build one. Upstream host experts are memory-mapped by default.
+1. **llama.cpp already contains a working-set-style expert cache.** `--moe-cache-mib` (marked EXPERIMENTAL in `include/llama.h`) keeps frequently and recently used experts of host-resident layers in a VRAM buffer, uploads only the missing ones, and hooks into `build_moe_ffn`. This removes the biggest risk in design.md (hand-building the per-layer slot remap and host sync) but means MaltOE extends someone else's cache. It also means the strongest stock baseline is `--n-cpu-moe` **plus** `--moe-cache-mib`, which Req 2.1 and Req 10.8 do not yet name. Details in section 6.
+2. **The RAM and SSD tiers would be the operating system's page cache**, not a MaltOE-managed cache, unless we build one. Upstream host experts are memory-mapped by default.
 3. **The importance run should use the Q4_K_M file, not Q8_0.** The official Q8_0 GGUF is 32.5 GB, more than the laptop's RAM and a heavy download. The final conversion (Task 5) can use Q8_0 on the PC if it matters.
-5. **Name collision.** NVIDIA's NeMo team open-sourced a project called Molt on 2026-07-22 ([NVIDIA-NeMo/labs-molt](https://github.com/NVIDIA-NeMo/labs-molt), [paper, arXiv 2607.21653](https://arxiv.org/abs/2607.21653)). It is a PyTorch framework for training language models with agentic reinforcement learning (Ray, vLLM, FSDP2). It does not do inference on consumer GPUs, expert width, or expert residency, so it is **not prior art for Molt's claim**. It does share the name, it is older than this project, and anyone searching for "Molt" will find it first. I did not check whether NVIDIA holds a trademark on the name; that needs a lawyer, not a search. Options are in the chat log and need your decision before the README and the demo are final: keep the name with a disambiguation note, or rename now while the code base is small.
+5. **Name collision (the reason for the rename).** This project's earlier working name was Molt. NVIDIA's NeMo team open-sourced an unrelated project called Molt on 2026-07-22 ([NVIDIA-NeMo/labs-molt](https://github.com/NVIDIA-NeMo/labs-molt), [paper, arXiv 2607.21653](https://arxiv.org/abs/2607.21653)). It is a PyTorch framework for training language models with agentic reinforcement learning (Ray, vLLM, FSDP2). It does not do inference on consumer GPUs, expert width, or expert residency, so it is **not prior art for MaltOE's claim**. It was older than this project and would have been found first by anyone searching the name. The project was renamed to MaltOE on 2026-11-16 (checks in 3.2c). I did not check whether NVIDIA holds a trademark on the name; that needs a lawyer, not a search.
 4. **README prior art needs additions:** llama.cpp's MoE cache, ElastiLM, and a note that DyMoE was also evaluated on Qwen3-30B-A3B. Also two wording fixes (DATS link, Yao et al.). Section 3.
 
 ## 3. G0: novelty
@@ -51,7 +51,7 @@ These need your decision at the checkpoint (section 9). I have not edited `requi
 
 The first G0 pass searched papers and a few named systems. A GitHub search afterwards found a crowded field of open-source projects that run MoE models larger than VRAM on consumer machines. Star counts are from the GitHub API on 2026-11-16. "Read" means I fetched the README and searched it for width, precision, top-k, budget, quality and live-pressure language, not that I read every line or ran the code.
 
-| Project | What it does (per its README) | Overlap with Molt |
+| Project | What it does (per its README) | Overlap with MaltOE |
 | --- | --- | --- |
 | [JustVugg/colibri](https://github.com/JustVugg/colibri) (Apache-2.0, 51.5k stars) | Hierarchical engine for frontier MoE models: hot experts on the GPU (CUDA, Vulkan), warm in RAM, cold on SSD. A hardware-aware planner detects RAM and VRAM budgets at setup and picks a build. Lossless or "quality-bounded" formats. | **Residency tiers and hardware detection.** No width control found. |
 | [wici-ai/inferssd](https://github.com/wici-ai/inferssd) (Apache-2.0, 1.2k) | llama.cpp plus SSD expert streaming, browser chat, OpenAI-compatible API. | Residency. |
@@ -63,6 +63,7 @@ The first G0 pass searched papers and a few named systems. A GitHub search after
 | [neerajdad123-byte/moe](https://github.com/neerajdad123-byte/moe) (MIT, 9) | Qwen3.6-35B-A3B at about 68 to 78 tok/s on an RTX 4050 Laptop 6 GB (their numbers). Free VRAM becomes expert slots. `--fast` is slightly approximate. | **The "35B on a small GPU" demo already exists.** |
 | [LozzKappa/hotpin-llm](https://github.com/LozzKappa/hotpin-llm) (AGPL-3.0) | Routing-guided expert pinning, bit-identical to a full-RAM run. | Residency, lossless. |
 | giannisanni/pulsar, yairpatch/flyweight, AlphaChat-dotcom/alphallama, Kelsidavis/hydranet, IbrahimSiddiqui007/moe-cache | Expert streaming and caching engines. | Residency. |
+| [affifuddin-hazam/ghost-infer](https://github.com/affifuddin-hazam/ghost-infer) (MIT or Apache-2.0; added 2026-11-18, raised by the builder) | Rust engine for one user on one consumer NVIDIA GPU, Windows. Attention on the GPU, experts in RAM, a GPU cache of the experts "a reply keeps reaching for", the other experts run on the CPU at the same time; one CUDA graph per layer with GPU-side expert selection. A setting for how much RAM the experts may use. Its README reports, on an 8 GB RTX 2060 SUPER with 24 GB RAM, Qwen3-30B-A3B (i1-Q3_K_M, 13.7 GB) at 68.7 tok/s vs 29.5 for llama.cpp (best `--n-cpu-moe`) and 26.9 for Ollama; Qwen3.6-35B-A3B at 80.5 vs 39.5; Qwen3-Coder-Next 80B (22 GB, bigger than RAM) at 11.8 to 14.5 (their numbers, measured 2026-11-14 and 2026-11-10). Also exact speculative decoding, a desktop app and an agent. | **Residency done very well, on our exact model and OS, about twice llama.cpp's decode speed.** No width found; no live response to a changing VRAM budget found in the README. Not verified by running it. |
 
 **What I did not find in any of them:** expert **width** (a prefix of importance-ordered neurons within an expert) as a runtime knob, mandatory and optional work scheduled by an objective, or width and residency adjusted together when the budget changes. That is the same conclusion as 3.3, now across more projects. The survey covers about 14 READMEs of many more, found by keyword. A project that uses other words could exist.
 
@@ -71,15 +72,22 @@ The first G0 pass searched papers and a few named systems. A GitHub search after
 1. **Residency is not a contribution, and neither is live cache shrinking.** bnk and possibly moe-l2 do it. The README must not suggest otherwise.
 2. **Lossy knobs already exist on a different axis:** skipping tail experts (Strata, tandem.cpp) and substituting cached experts (fomoe). A width-reduced expert is only interesting if it gives a better quality-versus-compute-and-bytes curve than these. **They need to be baselines in the 2x2 envelope** (proposed, not applied): Strata's tail-skip or tandem's `--fast` at matched compute.
 3. **Demo beat 1 is weaker than the handoff assumed.** A 35B model on a 6 GB laptop GPU at chat speed is already published by others, and stock `llama.cpp --n-cpu-moe` is far from "crawls below 1 tok/s". The comparison must be against `--n-cpu-moe` plus `--moe-cache-mib`, not a naive load. Beat 2 (the live squeeze with a controlled quality trade) is the real differentiator.
+4. **ghost-infer (added 2026-11-18) sets the speed bar on our model and platform.** MaltOE is a llama.cpp fork, and its decode speed will be near llama.cpp's, so on raw tok/s it will be behind ghost-infer. MaltOE must not be pitched on speed. Qwen3-30B-A3B on an 8 GB card is also no longer a hook by itself (builder, 2026-11-18). See section 9 for the proposed response.
+
+5. **Landscape matrix (2026-11-18):** [`landscape-matrix.md`](landscape-matrix.md) compares about 30 engines and papers on residency, lossy knob, runtime adaptation and live VRAM response. New prior art found there: **MatMoE** (ICCAD 2026, nested per-expert precision tuned live to a latency target, on llama.cpp), **FreeToken** (runtime VRAM re-allocation between expert cache and KV), and **Krasis** (VRAM pressure detection). Proposed, not applied: cite all three, drop the precision-skin stretch or credit it to MatMoE, and test ghost-infer, Krasis and FreeToken under the active VRAM filler.
+
+6. **Not tied to Qwen3 (2026-11-18).** At the pinned commit, the routed-expert FFN of 72 of 182 model files goes through one shared function, `build_moe_ffn`, including DeepSeek 4.1 (`deepseek41`), Qwen3.5/3.6 MoE, GLM-4 MoE, MiniMax-M3 and Kimi-K3.1. If the width patch lives there, porting to another architecture is loader, converter and block-size work, not a redesign. What limits DeepSeek V4.1 is hardware (model size against 16 GB of RAM) and unverified file details, not the method.
 
 ### 3.2c Name checks (2026-11-16)
 
 | Name | Finding |
 | --- | --- |
-| Molt | NVIDIA's NeMo team released an agentic-RL training framework called Molt on 2026-07-22 (section 2, finding 5). |
+| Molt (earlier working name) | NVIDIA's NeMo team released an agentic-RL training framework called Molt on 2026-07-22 (section 2, finding 5). **Reason for the rename.** |
 | Lamina | [eddoursul/Lamina](https://github.com/eddoursul/Lamina): a fork of Strata that runs MoE models across NVIDIA GPUs and RAM. Also a 2024 paper, [arXiv 2405.01814](https://arxiv.org/abs/2405.01814), on attention offloading. **Taken, and in the same field.** |
 | Instar | [instar.sh](https://instar.sh/): an AI-agent framework ("Claude Code, with a mind of its own"). **Taken.** |
 | Ecdysis | [cuiyu-ai/Ecdysis](https://github.com/cuiyu-ai/Ecdysis): "Efficient and Effective Training of Runtime Harnesses for LLM Agents" (14 stars). **Taken in AI.** |
+| Malt | Taken as a package name on PyPI (a MATLAB linter) and npm. [bnpr/Malt](https://github.com/bnpr/Malt) (Blender rendering framework, 1.2k stars, malt3d.com), [themetaschemer/malt](https://github.com/themetaschemer/malt) (an ML toolkit), and malt.com (a large freelance marketplace whose AI and LLM engineer profiles dominate search results). **Busy; not chosen.** |
+| **MaltOE (chosen)** | No repository, package, or project of that name found on GitHub, PyPI, npm, or the web. `maltoe` is a personal GitHub account (since 2009, inactive). Malt + MoE, pronounced "Malt". Searches cover only those sources; trademarks were not checked. |
 
 ### 3.3 Verdict
 
@@ -89,7 +97,7 @@ I did not find work that changes expert width and expert residency together, dur
 
 1. DATS: link the primary source (done in the same PR as this report).
 2. Yao et al.: the README said "applied to layers and early exits". The abstract says mandatory and optional parts with depth assignment and stage scheduling; the words "early exit" do not appear in the paper. Reworded (same PR).
-3. Add llama.cpp's MoE cache to prior art, since Molt builds on it (same PR).
+3. Add llama.cpp's MoE cache to prior art, since MaltOE builds on it (same PR).
 4. Add ElastiLM (same PR). DyMoE row gains the Qwen3-30B-A3B note (same PR).
 
 ### 3.5 Handoff figures re-verified
@@ -155,9 +163,9 @@ Source: [Qwen/Qwen3-30B-A3B](https://huggingface.co/Qwen/Qwen3-30B-A3B), `config
 
 What it does: for layers whose experts are host-resident, it keeps a device buffer of expert "slots". Each layer has a slot map in host memory; when the scheduler copies the map to the device, a callback uploads the missing experts. Policy: one LRU list per frequency class, with a combined recency-and-frequency score decayed with a 128-token half-life. Optionally the CPU computes a share of the misses instead of uploading them.
 
-What it lacks for Molt:
+What it lacks for MaltOE:
 
-| Molt needs | Upstream |
+| MaltOE needs | Upstream |
 | --- | --- |
 | Change the cache size while running | No. Size is a context parameter (`cparams.moe_cache_size`) fixed at context creation. |
 | Hit and miss counters for the dashboard | Printed once to the log at teardown (`log_stats`). No API. |
@@ -196,15 +204,15 @@ The first run's prefill figure for the fused variant (9.6 ms) was an artifact of
 1. **Narrower is cheaper in proportion, measured against the chunked full width.** k = 2 costs 0.65x of k = 3 in decode and 0.64x in prefill; k = 1 costs 0.34x and 0.27x. The ideal is 0.67x and 0.33x. So the width mechanism does reduce work.
 2. **Chunking has a price at full width, measured against the stock fused expert:** 1.97x in decode and 1.48x in prefill. At k = 2 it is still 1.29x in decode, and only k = 1 beats the fused expert in decode (0.68x). Prefill is better: k = 2 is on par with fused and k = 1 is 2.5x faster.
 3. **Why, not tested:** each chunk repeats the gate, up, down and activation steps, so one layer runs 3x as many kernels, and the input is quantized again for every matmul. At decode the calls are only 0.05 to 0.14 ms, which is close to launch cost. This spike does not use CUDA graphs, which llama.cpp does use for single-token decode, so the decode figure probably overstates the real engine's cost.
-4. **Sizing (estimate from arithmetic, not measured):** the extra 0.07 ms per layer at full-width decode is about 3.4 ms per token across 48 layers, if every expert were resident on the GPU. One expert at q4_K is about 2.65 MB (768 x 2048 x 3 weights at about 4.5 bits). Over a PCIe link of about 14 GB/s (a guess for a laptop x8 link) that is roughly 0.19 ms to fetch, longer than the whole per-layer chunking cost. So the price matters when everything fits in VRAM, and much less when experts are being streamed, which is the case Molt exists for. WiSP also reports decode as link-bound in that regime.
+4. **Sizing (estimate from arithmetic, not measured):** the extra 0.07 ms per layer at full-width decode is about 3.4 ms per token across 48 layers, if every expert were resident on the GPU. One expert at q4_K is about 2.65 MB (768 x 2048 x 3 weights at about 4.5 bits). Over a PCIe link of about 14 GB/s (a guess for a laptop x8 link) that is roughly 0.19 ms to fetch, longer than the whole per-layer chunking cost. So the price matters when everything fits in VRAM, and much less when experts are being streamed, which is the case MaltOE exists for. WiSP also reports decode as link-bound in that regime.
 
 **What it changes (for your decision, section 9):**
 
 - **Speed objective.** The approved rationale was that narrower is faster in FLOPs, so capping at C - 1 is a latency trade-off even with VRAM to spare. In this spike that is true against the chunked full width, but not against the fused expert in decode: k = 2 is 1.29x slower than fused. The Speed cap should be re-checked in the real engine (CUDA graphs on) before its rationale is repeated in the write-up.
-- **Configuration A in the 2x2.** "Full" must say whether it is the stock fused expert or the chunked layout at k = C. They differ by the price above. Comparing Molt's chunked full width against stock llama.cpp charges Molt for the chunking; comparing against chunked full width isolates the controller. The report should show both.
+- **Configuration A in the 2x2.** "Full" must say whether it is the stock fused expert or the chunked layout at k = C. They differ by the price above. Comparing MaltOE's chunked full width against stock llama.cpp charges MaltOE for the chunking; comparing against chunked full width isolates the controller. The report should show both.
 - **Reducing the price** (none attempted): merge gate and up into one tensor per chunk (llama.cpp already has a merged `gate_up` path), quantize the input once per layer, or add one op that handles k chunks in a single launch.
 
-### 6.6b Avoiding the chunk price: prefix views (CPU result; CUDA pending)
+### 6.6b Avoiding the chunk price: prefix views
 
 The price in 6.6a comes from running one expert as several smaller ones. CRISP does not do that: it stores each expert once, reordered by importance, so that "a width-k execution simply accesses the first k neurons" (CRISP, section on neuron reordering). In ggml terms a width-k expert is a *view* of the one fused tensor: for gate and up, the first k x 256 rows of each expert; for down, the first k x 256 entries of every row, with the original row stride. That is one matmul per projection at every width, the same kernel count as the stock expert, only smaller shapes. design.md ruled this out because "kernels do not support truncated quantized rows in general"; that was an untested assumption.
 
@@ -215,18 +223,116 @@ The price in 6.6a comes from running one expert as several smaller ones. CRISP d
 | chunked | 0.44x | 0.88x | 1.32x |
 | prefix view | 0.48x | 0.78x | 1.04x |
 
-So on CPU the price at full width disappears (1.04x, within noise of the 1.00x it should be) and narrower widths still cost proportionally less. **This says nothing about CUDA yet.** The CUDA kernels may reject or mishandle a view whose row stride differs from its row size; `--views` on the laptop answers that, and a rejection would be an assertion message to paste back.
+So on CPU the price at full width disappears (1.04x, within noise of the 1.00x it should be) and narrower widths still cost proportionally less.
 
-Two limits that stay even if CUDA accepts it:
+**CUDA result (RTX 4060 Laptop GPU, 128 experts, top-8, q4_K, run by the builder 2026-11-17).** The CUDA backend accepts the views: they match the chunked layout to 8.6e-8 to 1.3e-7 and the f32 prefix reference to the usual 1.2e-2, all PASS, in decode and prefill. Timing, as multiples of the stock fused expert:
+
+| | prefill, 512 tokens (spread 0% to 1%) | decode, 1 token (spread up to 33%, flagged as noisy) |
+| --- | ---: | ---: |
+| chunked k = 1 / 2 / 3 | 0.40x / 0.95x / 1.49x | 0.95x / 1.76x / 2.61x |
+| prefix view k = 1 / 2 / 3 | **0.44x / 0.76x / 1.08x** | 1.26x / 1.40x / 1.71x |
+
+- **Prefill: views remove most of the price.** Full width falls from 1.49x to 1.08x of stock, and two-thirds width from 0.95x to 0.76x, so two-thirds width is now cheaper than the stock expert. One-third width costs about the same either way.
+- **Decode: this spike cannot settle it.** The stock expert's time was stable between runs (0.0725 and 0.0712 ms), but the other variants moved a lot: chunked full width was 1.97x of stock yesterday and 2.61x today. Each call is 0.07 to 0.19 ms, which is mostly launch cost, and the spike runs without CUDA graphs, which llama.cpp uses for single-token decode.
+- **One result I cannot explain.** The full-width view has the same shape and data as the stock tensor and goes through the same `mul_mat_id` dispatch, yet took 1.71x as long in decode. I read the CUDA dispatch and its gate/up/activation fusion check and found no condition that treats a view differently. Finding the cause needs a profiler run (Nsight Systems) or the real engine, not more guessing.
+
+**Conclusion for the design:** prefix views are the better layout for compute in prefill, measured. For decode, the deciding measurement is Task 6.8 in the real engine with CUDA graphs on, against A-stock.
+
+Two limits that stay now that CUDA accepts it:
 
 - **Paging.** For down, a width-k prefix is a piece of every row, not one contiguous block. Copying a width-k slice over PCIe as 2,048 short pieces would be slow. A layout that is contiguous for transfer (chunk-major, as in the package) and a layout that is a prefix view for compute (expert-major) are different. One way to reconcile them is to upload each chunk contiguously and scatter it into the expert-major slot on the GPU, which runs at VRAM speed. That is a design idea, not tested.
 - **Quality is a separate question.** Nothing here says a width-reduced Qwen3-30B-A3B stays useful. That is gate G3 (Step D).
+
+### 6.6c Step B: llama.cpp's MoE cache against static offload (first run, 2026-11-17)
+
+RTX 4060 Laptop GPU, i9-14900HX, 16 GB RAM, Qwen3-30B-A3B Q4_K_M (18.6 GB file, larger than RAM), 128 generated tokens from a fixed prompt, greedy, two runs per configuration, llama.cpp `a946eb54` with CUDA 12.9.
+
+| configuration | decode tok/s (run 1 / 2) | prompt tok/s | peak GPU MiB | disk read GiB per run | lowest free RAM MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| static `-ncmoe 40` | 10.8 / 13.3 | 12.1 / 12.5 | 4,387 | 6.0 / 10.2 | 89 / 101 |
+| static `-ncmoe 34` | 15.9 / 25.7 | 14.0 / 13.3 | 6,429 | 9.7 / 9.5 | 201 / 213 |
+| static `-ncmoe 28` | 17.2 / 18.6 | 11.1 / 13.3 | 7,905 | 5.0 / 3.5 | 242 / 252 |
+| cache 1,024 MiB, all experts on host | 5.2 / 5.4 | 10.8 / 19.9 | 2,435 | 5.6 / 7.6 | 251 / 277 |
+| cache 2,048 MiB | 6.3 / 6.0 | 19.9 / 19.6 | 3,459 | 7.7 / 7.4 | 99 / 95 |
+| cache 3,072 MiB | 6.8 / 6.9 | 20.0 / 20.4 | 4,483 | 6.4 / 7.4 | 297 / 296 |
+| cache 4,096 MiB | 7.5 / 7.9 | 19.5 / 18.9 | 5,509 | 7.4 / 6.8 | 305 / 319 |
+
+Disk read is the sum of one-second samples of the whole disk, so it is approximate. Two script problems: every row says "FAIL (exit )" only because Windows PowerShell 5.1 drops the exit code (fixed in `spikes/common.ps1`; the runs finished, since speeds were printed), and the cache hit rate column is empty because the hit-rate line was not in the logs. The likely cause is log verbosity: llama.cpp's own tuner (`scripts/moe-cache-tune.py`) runs the server with `-lv 4` before reading that line, so it is probably filtered out at the default level. That is an inference from the tuner's code, not tested; the probe now passes `-lv 4`.
+
+**What it shows:**
+
+1. **RAM, not VRAM, is the binding limit on this laptop.** Free RAM fell to 0.1 to 0.3 GB in every run, and each 30 to 50 s run read several GiB from disk. The SSD tier is exercised with no RAM filler, as expected for a model file larger than RAM.
+2. **At matched VRAM, static offload was faster than the cache.** At about 4.4 GB of GPU memory, static `-ncmoe 40` decoded at 10.8 to 13.3 tok/s and the 3 GB cache at 6.8 to 6.9. Every cache size was slower than every static setting. A likely reason, not tested: llama.cpp's own documentation says host experts are not pinned when the model is memory-mapped (the default), so uploads to the GPU are slower, and it suggests `--moe-cache-cpu-share` for that case. Pinning all experts is not possible here, because the file does not fit in RAM. The laptop's strong CPU also favours computing experts on the CPU, as static offload does.
+3. **Runs vary a lot.** `-ncmoe 34` gave 15.9 and 25.7 tok/s in two runs of the same command. With RAM this tight, the state of the OS page cache decides much of the speed. Later measurements need more repeats and a recorded free-RAM figure.
+
+**What it changes:**
+
+- **The strongest stock baseline on this laptop is static `-ncmoe`, not the cache (BL-2b).** Both stay in the plan; the report must not assume the cache is the harder opponent.
+- **Approved change 2 still stands but is now riskier.** MaltOE needs a VRAM residency mechanism for width-aware paging either way, but the upstream cache, as configured here, lost to static offload. Before building on it, the next probe should try `--moe-cache-cpu-share` (llama.cpp ships a tuner, `scripts/moe-cache-tune.py`) and record hit rates.
+- **A point in width's favour, to be measured, not claimed:** when the model streams from disk, a narrower width reads fewer bytes per expert, so it may help this laptop more through disk and RAM than through GPU compute.
+
+### 6.6d Step B2: the cache with a CPU share, against static offload at the same VRAM (2026-11-17)
+
+Same laptop, model, and prompt as 6.6c, now with `-lv 4` so the cache's statistics are logged. All rows use about 4.4 GB of GPU memory. "CPU share" is `--moe-cache-cpu-share`: the share of cache misses the CPU computes from host memory instead of uploading to the GPU. Two runs each; the cache statistics were identical in both runs (greedy decoding gives the same routing).
+
+| configuration | decode tok/s (run 1 / 2) | prompt tok/s | cache hit rate | misses computed on CPU | uploaded to GPU |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| static `-ncmoe 40` | 12.8 / 13.4 | 11.8 / 10.4 | | | |
+| 3 GB cache, CPU share 0 | 5.1 / 5.1 | 16.0 / 15.7 | 65.7% | 0 | 45,981 MiB |
+| 3 GB cache, CPU share 0.5 | 7.8 / 7.9 | 17.9 / 15.7 | 64.1% | 8,195 | 25,554 MiB |
+| 3 GB cache, CPU share 0.95 | 11.9 / 12.3 | 16.6 / 15.7 | 58.7% | 18,058 | 5,701 MiB |
+
+(The hit-rate and upload figures are for decode-sized batches, up to 8 tokens, as llama.cpp reports them.)
+
+**What it shows:**
+
+1. **Routing reuses experts.** A 3 GB cache holds roughly 1,100 of the model's 6,144 experts, about 18% (estimate: 3,072 MiB divided by about 2.7 MB per Q4_K expert from the config), and it served about 66% of expert uses during decode. That reuse is what a working-set policy relies on. It was measured on one prompt of 128 generated tokens, so how far it holds across conversations is open.
+2. **Without a CPU share, the cache is limited by uploads.** It uploaded about 45 GB to the GPU for 128 generated tokens, roughly 350 MB per token, and decoded at 5 tok/s. Every miss copies a whole expert over PCIe from memory that is not pinned (the model is memory-mapped and larger than RAM).
+3. **With a 0.95 CPU share, the cache nearly matches static offload** (12.1 against 13.1 tok/s on average), because uploads fall to 5.7 GB. Static offload is still slightly faster on this laptop, whose strong CPU suits computing experts in RAM.
+4. **Prompt processing is faster through the cache** at every share (about 16 tok/s against 11).
+
+**What it means for MaltOE (estimates to test, not results):**
+
+- **Bytes per miss is the lever, and width is how MaltOE moves it.** A miss at one-third width would upload about one third of the bytes. At the share-0 miss rate, that is roughly 120 MB per token instead of 350 MB. Whether speed follows the bytes depends on PCIe and disk behaviour that this run did not isolate. The 2x2 (configurations C and D) measures it.
+- **Residency alone does not beat static offload on this laptop.** A plain cache, tuned, roughly ties it. Any gain MaltOE shows here must come from width shrinking what moves, which is the joint-controller claim.
+- **BL-2b is run with `--moe-cache-cpu-share 0.95`**, the best of the three shares tried, so that the stock cache is compared at its best.
+
+### 6.6e Task 1.7b: how width chunks fit llama.cpp's MoE cache (code read, 2026-11-17)
+
+I read `src/llama-moe-cache.cpp` (984 lines) at the pinned commit end to end.
+
+**How it works.** The cache keeps, per group of layers with the same expert tensor layout, one VRAM "bank" per expert tensor (gate, up, down, or merged gate_up and down) with room for `n_slots` experts. A slot holds one expert's slice of each tensor: index `e` along the expert axis (`ne[2]`), `nb[2]` bytes, contiguous in the host tensor. After routing, the graph does a `get_rows` of a per-layer slot map (a host tensor), which makes the scheduler start a new split there and call the cache's copy callback. The callback reads the selected expert ids from the GPU (one synchronisation per MoE layer), plans hits and misses, uploads each missing expert as one contiguous copy, and writes the slot map, which then serves as the expert ids of the `mul_mat_id`. The policy is an LRU per frequency class over a combined recency-and-frequency score with a 128-token half-life. Layers are discovered from the model's `ffn_*_exps` tensors in host memory, and all per-layer tables are sized by the number of model layers.
+
+**Chunks as extra layers (the task's original idea) would mean deep changes:** every per-layer table (clock, slot map, trace) is indexed by the model's layer number, and the callback assumes one lookup per model layer.
+
+**Chunks as extra experts fit with almost no change.** Store each projection of a layer as one tensor of `C × n_expert` small experts ("pages"), with page `p = j·n_expert + e` holding chunk `j` of expert `e` (256 neurons): gate and up `[n_embd, 256, 384]`, down `[256, n_embd, 384]`. To the cache this is an ordinary layer with 384 experts. A width-k run turns the 8 routed expert ids into the `8·k` page ids of chunks `j < k` (one `get_rows` on a small I32 table, the op the cache itself already relies on), so only those pages are looked up, cached, and uploaded. Because the router weight of an expert is the same for all its chunks, one `mul_mat_id` per projection over the `8·k` page ids, followed by a sum over each expert's `k` partial outputs, computes the layer exactly.
+
+This answers three open points at once:
+
+1. **Kernel count:** one `mul_mat_id` per projection at every width, as in the stock expert, instead of the chunk loop's `k` (the suspected source of the full-width price in 6.6a).
+2. **Paging:** each page is one contiguous block per tensor, so a miss is one copy. Prefix views (6.6b) could not offer that for the down projection.
+3. **Cache reuse:** the cache needs no change to page by chunk.
+
+**Measured so far, sandbox CPU only** (`chunked_moe --pages`): the pages layout equals the chunked layout exactly (difference 0 at every width, f32 and q4_K, 1 and 32 tokens), clean under AddressSanitizer, and its time scales with width like the others. CPU timing cannot show a launch-count saving; the CUDA run on the laptop decides it.
+
+**What the cache still lacks for MaltOE (unchanged by this):**
+
+| Needed | State at the pin | Size of the change (my judgement, not measured) |
+| --- | --- | --- |
+| Pages smaller than an expert | Solved by the pages layout | Loader and graph changes only |
+| `n_expert_used` for sizing | Taken from the model (8); a width-k run looks up `8·k` pages per token | Small: pass the page count where the cache sizes zero slots and the minimum slot count |
+| Resize while running | Not supported: banks and `n_slots` are fixed when the context is created | Largest item. Simplest version: recreate the cache at a new size at a Safe Boundary and re-upload the working set |
+| Hit, miss and byte counters while running | Logged only at shutdown | Small: expose the existing counters |
+| Working-set policy and overflow signal | Recency-and-frequency LRU, no signal | Moderate: a working-set victim choice inside the self-contained LRU struct, plus a counter |
+| One GPU synchronisation per MoE layer | In the callback (open upstream PR #32076, "run everything without syncs") | Not MaltOE's to fix; it applies to every cache baseline equally |
+
+**Proposed design change (not applied, for your decision):** store the Elastic Package as pages (chunk tensors concatenated along the expert axis) instead of separate `.c{j}` tensors per chunk, and compute width k as one `mul_mat_id` over `8·k` page ids. Decide after the CUDA `--pages` run.
 
 ### 6.5 Smallest engine change for Route A (Req 1.7)
 
 llama.cpp has dynamic residency (VRAM to host) but not variable-width execution, so the change is to add width on top and extend the cache:
 
-1. **Package loader:** read `molt.*` metadata and the chunk tensors for `qwen3moe`.
+1. **Package loader:** read `maltoe.*` metadata and the chunk tensors for `qwen3moe`.
 2. **Graph:** loop the `build_experts` lambda over chunks `j < k` and sum the down-projection outputs.
 3. **Cache registration:** register each chunk's tensors with the MoE cache so chunks are cached and evicted independently. A narrower width then never uploads the wider chunks. *Largest uncertainty:* the cache is keyed by layer and by tensor layout, and I have not yet read it deeply enough to say whether chunk triples can be registered as extra logical layers without restructuring it.
 4. **Runtime resize and counters:** add what upstream lacks (6.3).
@@ -240,42 +346,216 @@ I am not giving an hours estimate; the real cost is item 3, and a short spike (r
 | --- | --- | --- |
 | Chunked experts on CUDA: correctness | A | **Passed** on the RTX 4060 Laptop GPU (see 6.6a) |
 | Chunked experts on CUDA: ms per layer, k = 1..3 vs fused | A | **Measured** (see 6.6a): 1.97x decode and 1.48x prefill at full width; narrower widths scale down as expected |
-| Upstream cache: decode tok/s, hit rate, bytes uploaded, disk read, for static `-ncmoe` vs cache sizes | B | *pending* |
+| Upstream cache: decode tok/s, hit rate, bytes uploaded, disk read, for static `-ncmoe` vs cache sizes | B | **Done** (see 6.6c and 6.6d) |
 
-## 7. G3: width quality (pending)
+## 7. G3: width quality
 
 Method ([`spikes/width_emulation`](../spikes/width_emulation/make_variant.py)): width k keeps the k x 256 most important neurons of each expert and zeroes the gate and up rows of the rest. A zero gate row gives silu(0) = 0, so the neuron contributes nothing, which is exactly what running a narrower expert computes. No reordering of stored tensors is needed to measure quality, and the file stays valid for stock llama.cpp. Importance is sqrt(mean(h^2)) x the L2 norm of the neuron's down-projection column, using llama-imatrix statistics from a calibration text of wikitext-2 **train** and llama.cpp source code. The evaluation uses wikitext-2 **test**, HumanEval, and GSM8K, so calibration and evaluation do not overlap. Controls: random neurons at k = 1.
 
 Deviations from tasks.md 1.5: (a) the base is Q4_K_M, not Q8_0 (finding 3); (b) no physical permutation is written, because emulation by zeroing is equivalent; (c) the smoke subset is the first 5 of a seeded 20-problem draw per set, and the same 20 will be Task 3's frozen set.
 
-| Variant | wikitext-2 perplexity | Coding (n/5) | Reasoning (n/5) | Importance mass kept |
-| --- | --- | --- | --- | --- |
-| k = 3 (full) | *pending* | | | |
-| k = 2 | *pending* | | | |
-| k = 1 | *pending* | | | |
-| k = 1, random neurons | *pending* | | | |
+**Results, laptop, 2026-11-18 (run took about 13 h).** RTX 4060 Laptop, all 48 layers of experts on the CPU (`-ncmoe 48`), Q4_K_M base, wikitext-2 test at 64 x 512 tokens.
+
+| Variant | wikitext-2 perplexity | vs full width | Coding (n/5) | Reasoning (n/5) | Importance mass kept (mean of 48 layers; min to max) |
+| --- | --- | --- | --- | --- | --- |
+| k = 3 (full) | 9.2921 ± 0.2223 | 1.00x | 4/5 | 5/5 | 100% |
+| k = 2 | 11.6127 ± 0.2828 | 1.25x | 3/5 | 5/5 | 76.5% (74.2 to 85.2) |
+| k = 1 | 21.498 ± 0.546 | 2.31x | 0/5 | 0/5 | 46.5% (42.9 to 59.9) |
+| k = 1, random neurons | 108.613 ± 3.445 | 11.7x | 0/5 | 0/5 | 33.4% |
 
 Five problems per set means each difference of one problem is 20 percentage points. The perplexity column is the more reliable signal; the problem counts only show gross failure.
+
+**What the results say:**
+
+- **k = 1 fails.** Perplexity 2.3x full width, and 0 of 10 problems solved. A 33%-wide expert does not give a usable result on this model without training.
+- **k = 2 is usable but costly.** See below.
+- **Importance ordering works.** At k = 1, importance-chosen neurons give perplexity 21.5; random neurons give 108.6, five times worse. Picking which neurons to keep is most of what makes width viable.
+- **Quality is monotone in width** (9.29 < 11.61 < 21.50), as Liu et al.'s monotone-task model requires (theory check 1.11f, part 1: holds).
+- **The error curve is convex in work given** (in Liu et al.'s sense, p. 64): the first optional chunk removes most of the error (21.5 → 11.6), the second much less (11.6 → 9.3) (theory check 1.11f, part 3).
+- **Importance mass under-predicts the loss at k = 1.** Dropping 23.5% of the mass costs 1.25x perplexity, but dropping 53.5% costs 2.31x. The relation is not linear, so importance mass alone is not a good error estimate near the floor (theory-sources: "ours, must check").
+- The "GPU MiB used" column (1,513 MiB in every row) is `nvidia-smi` after the smoke eval with every expert on the CPU. It says nothing about width and is left out.
+
+**G3 decision (proposed, for the builder at 1.10): partial pass.** Width at 67% is usable; 33% is not. Consequences:
+
+1. **The mandatory part is chunks 1 and 2, not chunk 1.** In Liu et al. (1991, p. 58) the mandatory subtask is what an acceptable result requires. Chunk 1 alone is not acceptable here, so with C = 3 only one chunk is optional and the range is 100% to 67%.
+2. **Fallback 6 applies: test C = 4** (25 / 50 / 75 / 100%). It adds 75% and 50% steps. The emulation needs no new block types (rows are zeroed), so it runs now with `-Variants c4k3,c4k2 -SkipImatrix` (about 3 h; imatrix reused). Real C = 4 packages need 32-element block types for the down projection (q8_0 etc.), as already noted.
+3. **The quant comparison becomes the deciding test** (advantage plan, test 2). At 67% width the expert bytes drop by a third for 1.25x perplexity. A Q3_K_M file is also about a quarter smaller than Q4_K_M. If a lower-bit file costs less quality at similar bytes, width's static case is lost and its only advantage is switching live without reloading. Not measured yet.
+
+### 7.1 C = 4 emulation (Task 1.5b, 2026-11-19)
+
+Same method, imatrix reused, four chunks of 192 neurons.
+
+| Width | Variant | wikitext-2 perplexity | vs full | Coding (n/5) | Reasoning (n/5) | Importance mass kept |
+| --- | --- | --- | --- | --- | --- | --- |
+| 100% | k3 | 9.292 ± 0.222 | 1.00x | 4/5 | 5/5 | 100% |
+| 75% | c4k3 | 10.738 ± 0.261 | 1.16x | 3/5 | 4/5 | 83.0% |
+| 67% | k2 | 11.613 ± 0.283 | 1.25x | 3/5 | 5/5 | 76.5% |
+| 50% | c4k2 | 14.685 ± 0.365 | 1.58x | 2/5 | 3/5 | 62.4% |
+| 33% | k1 | 21.498 ± 0.546 | 2.31x | 0/5 | 0/5 | 46.5% |
+
+- **Monotone across all five widths** (theory check 1.11f holds), and the curve is smooth: chunk size doesn't change the trend.
+- **75% costs 16% in perplexity**, the cheapest step measured. 50% costs 58% and loses problems; whether that is "acceptable" (mandatory) is a builder decision at 1.10.
+- The coding and reasoning counts move by one or two problems between neighbouring widths. With 5 problems per set that is within noise.
+- **Caveat for real C = 4 packages:** 192-neuron chunks split each 768-element down-projection row into pieces that aren't a whole number of 256-element K-quant blocks. A real package needs a 32-element block type for `ffn_down_exps` (Q8_0, Q5_0, Q4_0 or IQ4_NL). The emulation kept the file's Q4_K/Q6_K down weights, so a real C = 4 package will have different down-projection bytes and possibly different quality. C = 3 (256-neuron chunks) has no such problem.
+
+### 7.2 Width against lower-bit files: setup (Task 1.5c)
+
+Routed-expert bytes, read from each file's GGUF header (2026-11-19):
+
+| File | Total | Routed experts | Expert types (gate, up / down) | Importance matrix |
+| --- | --- | --- | --- | --- |
+| Qwen official Q4_K_M (our base) | 18.55 GB | 17.55 GB | Q4_K / half Q4_K, half Q6_K | **none** in metadata |
+| bartowski Q4_K_M | 18.63 GB | 17.55 GB | same layout | yes (`calibration_datav3`, 209 chunks) |
+| bartowski Q3_K_M | 14.07 GB | 13.10 GB (74.6%) | Q3_K / half Q3_K, half Q4_K | yes |
+| bartowski Q2_K | 10.90 GB | 10.00 GB (57.0%) | Q2_K / half Q2_K, half Q3_K | yes |
+
+Matched pairs by routed-expert bytes:
+- **Q3_K_M (13.10 GB) against width 75% (13.16 GB).** Almost exactly the same bytes, so this is the cleanest comparison.
+- **Q2_K (10.00 GB) between width 67% (11.70 GB) and 50% (8.78 GB).**
+
+**Confound:** bartowski's files were quantized with an importance matrix and Qwen's official Q4_K_M was not. An importance matrix helps low-bit files the most, so comparing bartowski Q3 directly against our 9.29 baseline would favour the quant. The fair test compares ratios within one publisher: width's cost is c4k3 / k3 on the Qwen file (1.16x); the quant's cost is bartowski Q3_K_M / bartowski Q4_K_M. That needs a perplexity run of bartowski Q4_K_M too.
+
+**What width offers that a quant doesn't, whatever the result:** width also cuts compute per token by the same fraction (a lower-bit file reads fewer bytes but does the same multiplications), it switches during a session without reloading, and it can be applied on top of a lower-bit file. Static quality per byte is the one question this test answers.
+
+### 7.3 Width against lower-bit files: results (Task 1.5c, 2026-11-19)
+
+Same text, chunks and flags as G3 (`-c 512 --chunks 64 -ngl 99 -ncmoe 48`), laptop.
+
+| Option | Routed-expert bytes | wikitext-2 perplexity | vs its own Q4_K_M |
+| --- | --- | --- | --- |
+| bartowski Q4_K_M (imatrix) | 17.55 GB | 8.9700 ± 0.2155 | 1.00x |
+| **bartowski Q3_K_M** | **13.10 GB** | **9.0258 ± 0.2147** | **1.006x** |
+| bartowski Q2_K | 10.00 GB | 9.6748 ± 0.2323 | 1.079x |
+| Qwen Q4_K_M (no imatrix), full width | 17.55 GB | 9.2921 ± 0.2223 | 1.00x |
+| **width 75% (C = 4, k = 3)** | **13.16 GB** | **10.738 ± 0.261** | **1.156x** |
+| width 67% (C = 3, k = 2) | 11.70 GB | 11.613 ± 0.283 | 1.250x |
+| width 50% (C = 4, k = 2) | 8.78 GB | 14.685 ± 0.365 | 1.580x |
+
+**Width loses to lower-bit files on static quality per byte, by a wide margin.**
+
+- At matched expert bytes (about 13.1 GB), Q3_K_M costs 0.6% in perplexity, inside the error bars. Width 75% costs 15.6%, well outside them.
+- Q2_K is smaller than width 67% (10.0 vs 11.7 GB) and still costs less (7.9% vs 25%).
+- The comparison is within each publisher, so the imatrix difference doesn't explain it. bartowski's imatrix Q4_K_M is itself 3.5% better than Qwen's official Q4_K_M (8.97 vs 9.29).
+- Only perplexity was measured for the quant files. The coding and reasoning counts weren't run, but the perplexity gap is far larger than the noise.
+
+**What this rules out:** the handoff's premise that a narrower expert is a good way to spend fewer bytes. For a user who just wants the model to fit, the right answer is a lower-bit file, not MaltOE's width. Width's remaining arguments are weak:
+- **Compute per token:** decode is memory-bound on the GPU, and the CUDA spike already showed width at k = 2 slower than the stock expert (6.6a).
+- **Live switching without reloading:** real, but the same could be done with precision instead of width.
+
+**Side observation (uncontrolled):** time per perplexity pass was 67 s for Q4_K_M, 54 s for Q3_K_M and 13 s for Q2_K. The Q2_K file (10.9 GB) roughly fits in free RAM, and the others don't, which matches the RAM limit from 6.6c. Not a controlled speed measurement.
+
+**Gate consequence (proposed, for the builder at 1.10): the width route fails the advantage test.** Per the stop rule in the advantage plan, the decision at 1.10 is whether to pivot, before any engine work. Section 9 lists the options.
+
+**Earlier partial-results notes:**
+
+- **k = 2 costs 25% in perplexity** (9.29 to 11.61). The two error bars don't overlap, so this is a real loss, not noise. Wikitext-2 perplexity is a general-text measure; how much 25% matters for the demo task is what the coding and reasoning counts are for.
+- **The smoke counts barely move at k = 2:** reasoning stays 5/5, coding drops from 4/5 to 3/5 (HumanEval/83 newly fails; HumanEval/93 fails at both widths). One problem is within the noise of a 5-problem set.
+- **Importance is spread, not concentrated.** Keeping 67% of the neurons keeps only 76.5% of the importance mass, and keeping 33% keeps 46.5%. A strongly concentrated ranking would keep much more. The first three layers and the last eleven (37–47) are more concentrated than the middle. This hints that a per-layer width would lose less than one global width. That is not tested, and per-layer width is not in v1.
+- **Calibration coverage.** Up to 3 of 128 experts per layer were never routed to by the 128k-token calibration text (layers 42–44 have the most). For those experts the ranking falls back to the down-projection norm alone (`make_variant.py`, `importance`). `llama-imatrix` reported these as "partial data" warnings (93.75% to 99.22% of experts covered).
+- **Calibration perplexity** (from `llama-imatrix`, on the calibration text itself, 250 x 512 tokens): 5.7836 ± 0.0691. Not comparable with the wikitext-2 test numbers above.
+
+**Run time:** `llama-imatrix` took 6 h 19 min for 250 chunks, and each perplexity run took 65 to 90 min, because every expert ran on the CPU with the model larger than free RAM (finding in 6.6c). Each smoke eval took about 12 min (50 to 90 s per problem). The script's estimate of "an hour to several hours" was too low for this laptop; it should have been sized from free RAM.
 
 ## 8. G4 and Edge0 (pending)
 
 | Measurement | Step | Result |
 | --- | --- | --- |
-| Ballast holds VRAM; behaviour when a run exceeds free VRAM (fail, or spill to shared memory), with sysmem fallback on and off | C | *pending* |
-| RAM filler lowers available RAM on laptop and PC | C | *pending* |
+| Ballast holds VRAM; behaviour when a run exceeds free VRAM (fail, or spill to shared memory), with sysmem fallback on and off | C | **Done on the laptop** (see 8.1, 8.2): no failure in any case; an active filler slows the benchmark 2.8x to 5x |
+| RAM filler lowers available RAM on laptop and PC | C | **Laptop: yes** (9.88 to 6.92 GiB available with 3 GiB held, VirtualLock succeeded); PC pending |
 | Edge0 builds and runs on the RTX 4060 laptop; backend; tok/s at several `expert_slots` | E | *pending* |
+
+### 8.1 G4 on the laptop, idle filler (2026-11-17)
+
+`llama-bench` with `-ngl 99 -ncmoe 36` (about 5.4 GB of VRAM, fixed placement; `llama-bench` does not fit itself to free memory unless `--fit-target` is given) ran next to the VRAM filler holding 0 to 4 GiB. Driver 610.62.
+
+| filler | Driver Default: prompt / decode tok/s | Prefer No Sysmem Fallback: prompt / decode tok/s | peak GPU in use (both) |
+| ---: | ---: | ---: | ---: |
+| 0 GiB | 35.4 / 24.1 | 53.0 / 28.2 | 5,397 MiB |
+| 1 GiB | 45.4 / 27.5 | 32.8 / 26.3 | 6,504 MiB |
+| 2 GiB | 45.7 / 24.7 | 48.8 / 28.5 | 7,528 MiB |
+| 3 GiB | 34.8 / 26.4 | 39.1 / 27.4 | 7,924 MiB |
+| 4 GiB | 29.3 / 25.3 | 41.4 / 24.2 | 7,924 MiB |
+
+With the 3 and 4 GiB filler the two programs asked for about 8.5 and 9.5 GB, more than the 8 GB card, yet nothing failed, decode speed did not drop, and total use stayed at about 7.9 GB (`nvidia-smi` during the overlap: 7,924 and 7,830 MiB). With the default setting, one reading showed the 4 GiB filler alone at 2,451 MiB. So up to about 1.6 GB of what was asked for was not in VRAM, and since the benchmark did not slow down, it was almost certainly the idle filler's memory that Windows moved out. That is inferred from the totals; Windows does not report which allocation it moved. The CUDA sysmem fallback setting made no difference, because it governs what CUDA does when an allocation fails, and no allocation failed. The "shared GPU memory" counter moved only 55 to 134 MiB, so it did not see the move either (it samples once a second).
+
+**Consequences:**
+
+1. **An idle filler does not create lasting pressure on Windows**, so it does not impose the 4 and 6 GB budgets on the baselines. A filler that keeps using its memory is being tested next (`ballast_probe ... touch_ms`). If Windows then moves the benchmark's memory instead, that is the realistic "another GPU app" case for the Live Squeeze.
+2. **MaltOE's own accounting stays the primary limit** on MaltOE (design.md), and baselines will need either the active filler or a configuration that fits each budget (for example `-ncmoe` chosen per budget).
+3. **For all later runs, keep "Prefer No Sysmem Fallback"** so that a CUDA allocation that cannot be met fails visibly. (Proposed; it made no difference here.)
+
+### 8.2 G4 on the laptop, active filler (2026-11-17)
+
+Same benchmark, "Prefer No Sysmem Fallback", the filler now rewriting all of its memory every 50 ms, as a game or another GPU program keeps its memory in use.
+
+| active filler | prompt tok/s | decode tok/s | run time |
+| ---: | ---: | ---: | ---: |
+| 0 GiB | 46.9 | 27.9 | 28 s |
+| 1 GiB | 48.2 | 29.1 | 32 s |
+| 2 GiB | 45.7 | 29.0 | 28 s |
+| 3 GiB | 16.0 | **10.1** | 69 s |
+| 4 GiB | 6.4 | **5.6** | 121 s |
+
+Once the two programs together needed more than the card holds, the benchmark slowed to 0.36x (3 GiB) and 0.20x (4 GiB) of its normal decode speed. Nothing failed: no out-of-memory error, even with the fallback setting that is supposed to prevent spilling, and total GPU use stayed at about 7.9 GB. Windows kept the active program's memory in VRAM and moved the benchmark's out, so the benchmark paged over PCIe.
+
+**What this settles:**
+
+1. **On Windows, running out of VRAM looks like a slowdown, not a crash.** A stock setup does not die when another program takes memory; it quietly becomes 3x to 5x slower. The handoff's Live Squeeze line ("a normal setup would die") is wrong for this machine; the honest version is "a normal setup slows to a crawl and does not know why". That is still a good demo beat, and it is measured.
+2. **MaltOE cannot wait for an out-of-memory error.** The error does not come. The controller has to act on falling free VRAM, which is what design.md already specifies (sampling free VRAM at least every 250 ms; the effective budget is the smaller of the user's budget and measured free plus MaltOE's own use). Requirement 7.9 (out-of-memory recovery) still holds, but on Windows it is a rare path, not the main one.
+3. **The filler must be active.** `maltoe-ballast --vram` (Task 9.1) keeps rewriting its memory; an idle filler gets moved out and imposes nothing. The same holds for any budget imposed on the baselines.
+4. **A detail to measure later:** whether `cudaMemGetInfo` reports the lower free VRAM while Windows is paging, so the controller sees the pressure in time. The `nvidia-smi` totals (7,924 MiB in use) suggest yes; MaltOE's monitor should log both.
 
 ## 9. Recommendation and checkpoint
 
 **Provisional route (valid unless G3 or G4 fail): Route A.** Convert Qwen3-30B-A3B without training (importance-ordered chunks), on a llama.cpp fork at the pinned commit, with `C = 3`.
 
-Proposed changes for your approval (none applied yet):
+**Approved by the builder on 2026-11-16, all of the following, and applied to requirements.md, design.md, and tasks.md:**
 
 1. **Baselines:** add `llama.cpp --n-cpu-moe + --moe-cache-mib` (BL-2b) to Req 2.1 and Req 10.8, because it is the strongest stock setup.
 2. **Pager design:** replace "write an expert pager" with "extend llama.cpp's MoE cache" (chunk-aware pages, runtime resize, counters, working-set signal). Tasks 7.1 to 7.8 change accordingly.
-3. **RAM and SSD tiers for v1:** use the operating system's page cache through mmap, and measure bytes read with OS counters. Build Molt's own unbuffered reader only if Step B and Step C show the page cache cannot be controlled well enough. Req 6.1 (three tiers) still holds.
+3. **RAM and SSD tiers for v1:** use the operating system's page cache through mmap, and measure bytes read with OS counters. Build MaltOE's own unbuffered reader only if Step B and Step C show the page cache cannot be controlled well enough. Req 6.1 (three tiers) still holds.
 4. **Add a task 1.7b:** a short spike that reads `llama-moe-cache.cpp` end to end and registers one chunked layer, to settle the main uncertainty in 6.5.
 5. **Importance run on Q4_K_M** (finding 3).
 6. **Fallbacks:** if G3 fails at k = 1, try `C = 4` (q8_0-type chunks only) before anything else; MoSE only if code and checkpoints appear; Route B (Edge0) only if G2 on CUDA fails.
+7. **Tail-skip baseline (BL-4)** (from the survey in 3.2b): compare width reduction with skipping the lowest-ranked routed experts at matching compute (Req 10.9, Task 4.6).
+8. **Configuration A in two forms,** A-stock and A-chunked (Req 10.10), because they run at different speeds (6.6a).
+9. **Speed objective re-check** in the real engine (Task 6.8).
 
-Open items: the CRISP source code (not released), WiSP's behaviour under an external VRAM change (unverified), and whether the pinned commit builds on Windows with CUDA.
+**To discuss with the builder (not yet decided): demo impact.** A 30B-class MoE running on a cheap consumer GPU is already shown by others (section 3.2b; for example Qwen3.6-35B-A3B at 68 to 78 tok/s on a 6 GB laptop GPU, per that project's README), and stock `llama.cpp --n-cpu-moe` does not "crawl below 1 tok/s". Demo beat 1 as written in the handoff will not surprise a judge who knows the field. The live squeeze with a controlled quality trade (beat 2) is the part nobody else shows. Whatever replaces beat 1 should be chosen after the Step B and Step D numbers exist, so it rests on measured results.
+
+Candidate from the builder (2026-11-16): open with the asterisk. "An 8 GB GPU can run DeepSeek V4.1*", then reveal the footnote ("* at a uselessly low tokens per second"), then "well, I won't claim that", and turn to what MaltOE does claim. It makes the honesty rules part of the pitch. Conditions: the footnote number must be a real measurement from Task 15.2 on the test laptop, or the slide must say plainly that it is a joke figure. V4.1 needs hundreds of GB of disk, and none of the handoff's V4.1 figures are verified yet.
+
+**To discuss with the builder (not yet decided, 2026-11-18): Qwen3-30B-A3B is overused, and ghost-infer is about twice as fast as llama.cpp on it** (3.2b, item 4). The repository was created 2026-10-27 and has no `.kiro` folder (GitHub API, 2026-11-18). Options:
+
+| Option | What it means | For | Against |
+| --- | --- | --- | --- |
+| A. Keep Qwen3-30B-A3B, change the pitch | The model is the test bench, not the hook. The pitch is what happens when the VRAM budget changes mid-session. | G3 data already exists (over 10 h of runs). llama.cpp and ghost-infer numbers on the same model make comparisons direct. | No surprise from the model itself. |
+| B. Switch the main model to one bigger than RAM (for example an 80B-A3B class model at about 22 GB on the 16 GB laptop) | Experts must stream from the SSD. Width reduces the bytes read per expert, so width does something residency alone can't. | The strongest case for width. | New architecture to check in the pinned llama.cpp. G3 would have to be redone on a model that streams from disk, which would take much longer than the 30B run. Larger risk with 16 days left. |
+| C. A for v1, plus a bigger-than-RAM model as a stretch closing beat | Replace or sit beside the DeepSeek V4.1 stretch (Task 15.2) with a model that fits the laptop's disk. | Keeps the schedule. A realistic closing beat. | Only happens if v1 is done early. |
+
+**Recommendation: C.** In addition, proposed spec changes (not applied):
+
+1. **ghost-infer as a baseline (BL-5)** on the laptop, same model and file, including a run under the active VRAM filler from Step C. If ghost-infer also slows down silently when another app takes VRAM, that is a fair, measured demo point. If it doesn't, the pitch has to change, and it's better to know now.
+2. **Do not claim speed** in the README or video. Report MaltOE's tok/s next to ghost-infer's and llama.cpp's as measured.
+3. **Cite ghost-infer** in the README prior-art section (Task 13.2) as residency done on the same model and platform.
+
+**Decision needed at 1.10 (2026-11-19): what to do now that width loses to lower-bit files** (7.3). Options:
+
+| Option | What changes | For | Against |
+| --- | --- | --- | --- |
+| A. Keep width, narrow the claim to live switching | Width only as the live squeeze lever; README says plainly that a lower-bit file is better for a static fit | No re-plan | The core mechanism is shown to be inferior. Weak for Impact and Innovation. |
+| **B. Make precision the knob: each expert has a Q2 version and a Q4 version** | Liu et al.'s **multiple-version method** (1991, p. 59): the alternate version (Q2_K) is the mandatory work, the primary (Q4_K) adds the optional work, under the 0/1 constraint. The controller moves experts between precisions and between VRAM, RAM and SSD as the live VRAM budget changes. Denning's working set is unchanged; pages become (expert, precision). | Measured: Q2_K costs only 7.9% for 57% of the bytes. Keeps the joint controller, the live squeeze and both papers, and fits the paper more directly than width did. | **Prior art is closer:** DyMoE (runtime per-expert mixed precision with a mixed-precision VRAM cache, driven by importance), MatMoE (nested precision tuned to a latency target), D2MoE. The claim must be the live VRAM-budget response combined with residency. Whether DyMoE reacts to budget changes needs a full read. Engineering: llama.cpp tensors have one type, so a Q2 bank and a Q4 bank per layer need a spike like 1.7b. |
+| C. Stop the custom runtime | Ship a controller around stock files (switch files on pressure, with a reload) | Least work | The reload is exactly the stall the project set out to avoid. |
+
+Recommendation: **B**, with a short feasibility spike first (two expert banks of different types in one MoE layer on the pinned llama.cpp, and a full read of DyMoE's runtime policy). Nothing here is applied to the spec until the builder decides.
+
+**Parked by the builder (2026-11-19): the "shared GPU" plan, kept as a fallback while another topic is tried.**
+
+- Pitch: a game launching mid-chat makes stock llama.cpp slow 3–5x with no error (Step C). MaltOE steps its experts down from Q4 to Q2 (quality cost 8%, measured), holds its speed, and steps back up when the game closes.
+- Papers: Denning (FJCC 1968) on thrashing when several programs share memory under a global policy; Liu et al. (1991, p. 59) on running the alternate version during a transient overload.
+- Gating tests, none run yet:
+  1. ghost-infer, Krasis and FreeToken under the Step C active filler (builder, about 1 h);
+  2. a two-bank (Q2 + Q4) MoE layer in the pinned llama.cpp (sandbox);
+  3. a full read of DyMoE's runtime policy (sandbox).
+
+Open items: the CRISP source code (not released) and WiSP's behaviour under an external VRAM change (unverified). The pinned commit builds on Windows with CUDA 12.9 and MSVC 19.39 (verified on the laptop, 2026-11-16).

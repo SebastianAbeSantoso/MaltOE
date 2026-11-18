@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
-from molt import __version__, defaults
-from molt.server import create_app
+from maltoe import __version__, defaults
+from maltoe.server import create_app
 
 
 def test_health_endpoint():
@@ -17,7 +17,7 @@ def test_server_listens_on_loopback_only():
 
 
 def test_static_app_is_served_without_shadowing_the_api(tmp_path):
-    (tmp_path / "index.html").write_text("<html>molt</html>", encoding="utf-8")
+    (tmp_path / "index.html").write_text("<html>maltoe</html>", encoding="utf-8")
     client = TestClient(create_app(web_dist=tmp_path))
-    assert client.get("/").text == "<html>molt</html>"
+    assert client.get("/").text == "<html>maltoe</html>"
     assert client.get("/api/health").json()["status"] == "ok"

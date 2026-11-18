@@ -1,10 +1,10 @@
-# Requirements Document — Molt (codename ELASTIC)
+# Requirements Document — MaltOE (codename ELASTIC)
 
 ## Introduction
 
-Molt is a hardware-adaptive local inference runtime for one Mixture-of-Experts (MoE) model package. It runs on consumer Windows PCs with roughly 6–12 GB of GPU memory and keeps a conversation going when the model does not fit in VRAM.
+MaltOE is a hardware-adaptive local inference runtime for one Mixture-of-Experts (MoE) model package. It runs on consumer Windows PCs with roughly 6–12 GB of GPU memory and keeps a conversation going when the model does not fit in VRAM.
 
-Molt coordinates two mechanisms in one joint controller:
+MaltOE coordinates two mechanisms in one joint controller:
 
 - **Capacity adaptation ("skin shedding").** Each expert executes at one of several nested widths. The scheduling policy follows Imprecise Computation (Liu et al., 1991): a mandatory part always runs, and an optional part runs only when the budget allows.
 - **Residency adaptation.** Expert weights are placed across VRAM, system RAM, and SSD. The placement policy follows the Working Set Model (Denning, 1968): experts used in the recent token window stay in VRAM, and the runtime avoids thrashing.
@@ -15,34 +15,38 @@ The source of truth for this spec is `docs/elastic-kiroween-handoff.md`.
 
 These requirements apply throughout the spec and the write-up.
 
-- Working-set paging for MoE is prior art. WiSP (Nokia; arXiv 2606.21868, v1 June 2026, v2 August 2026) treats low-resource MoE serving as a working-set problem, keeps outputs byte-identical, and includes MV-WSA, a live controller that resizes the expert cache and KV cache while serving. Molt cites WiSP and does not claim working-set MoE residency, or live residency control, as its contribution.
-- Joint optimisation of expert width and expert loading is prior art. CRISP (arXiv 2610.37442, October 2026) reorders neurons by importance so one stored expert supports multiple widths, and co-designs that pruning with runtime scheduling that overlaps expert loading with compute, on memory-constrained edge servers. Molt cites CRISP and does not claim importance-ordered expert widths, or the general idea of optimising width and loading together, as its contribution. Whether CRISP adapts online to a changing memory budget is unverified and is checked in the Feasibility Round.
-- Imprecise computation applied to neural networks is prior art in parts. Yao et al. apply it to DNN layers and early exits, and DATS (RTSS 2026) applies it to LLM tokens. Molt does not claim it as its contribution.
-- Molt's claimed contribution is limited to: a controller that changes expert width and expert residency together **during a live session when the VRAM budget changes**, steered by a user-selected Objective, with width scheduled as mandatory and optional work in the sense of Liu et al. (1991), for a local, single-user MoE on consumer hardware. Output quality is a controlled variable traded against latency and memory. IF the Feasibility Round finds that CRISP or other work already does this, THEN the claim SHALL be narrowed again before any write-up.
+- Working-set paging for MoE is prior art. WiSP (Nokia; arXiv 2606.21868, v1 June 2026, v2 August 2026) treats low-resource MoE serving as a working-set problem, keeps outputs byte-identical, and includes MV-WSA, a live controller that resizes the expert cache and KV cache while serving. MaltOE cites WiSP and does not claim working-set MoE residency, or live residency control, as its contribution.
+- Joint optimisation of expert width and expert loading is prior art. CRISP (arXiv 2610.37442, October 2026) reorders neurons by importance so one stored expert supports multiple widths, and co-designs that pruning with runtime scheduling that overlaps expert loading with compute, on memory-constrained edge servers. MaltOE cites CRISP and does not claim importance-ordered expert widths, or the general idea of optimising width and loading together, as its contribution. Whether CRISP adapts online to a changing memory budget is unverified and is checked in the Feasibility Round.
+- Imprecise computation applied to neural networks is prior art in parts. Yao et al. apply it to DNN layers and early exits, and DATS (RTSS 2026) applies it to LLM tokens. MaltOE does not claim it as its contribution.
+- MaltOE's claimed contribution is limited to: a controller that changes expert width and expert residency together **during a live session when the VRAM budget changes**, steered by a user-selected Objective, with width scheduled as mandatory and optional work in the sense of Liu et al. (1991), for a local, single-user MoE on consumer hardware. Output quality is a controlled variable traded against latency and memory. IF the Feasibility Round finds that CRISP or other work already does this, THEN the claim SHALL be narrowed again before any write-up.
 
 ### Hard constraints from the handoff
 
-- Molt builds on an existing inference engine. It does not train a model from scratch or write an inference engine from scratch.
+- MaltOE builds on an existing inference engine. It does not train a model from scratch or write an inference engine from scratch.
 - Expert top-K stays fixed in v1. Width is the capacity control.
 - v1 is width-only. Precision skins are a stretch goal. Expert skin (dropping experts per token) is out of scope because it conflicts with fixed top-K.
 - Width is selected per session in v1. Per-request selection is an optional later extension.
-- Molt never chooses width per token based on token content. The only mid-generation width change allowed is a narrowing or widening at a Safe Boundary (between tokens) in response to memory pressure.
+- MaltOE never chooses width per token based on token content. The only mid-generation width change allowed is a narrowing or widening at a Safe Boundary (between tokens) in response to memory pressure.
 - The primary target is the RTX 4060 8 GB (CUDA). The RX 6650 XT 8 GB (Vulkan) is a stretch compatibility target.
 - No numeric performance or quality threshold is fixed before baseline runs exist. Requirements below that need a threshold refer to values recorded in the baseline report.
 - CPU-ARC, dynamic top-K, per-token width changes, multi-GPU, cloud inference, and automatic conversion of arbitrary MoE models are out of scope.
 
 ## Glossary
 
-- **Molt / Runtime**: the system specified here. "ELASTIC" is the codename used in the handoff.
-- **Engine**: the existing third-party inference engine Molt builds on. It is chosen in the Model Feasibility Round.
+- **MaltOE / Runtime**: the system specified here. "ELASTIC" is the codename used in the handoff.
+- **Engine**: the existing third-party inference engine MaltOE builds on. It is chosen in the Model Feasibility Round.
 - **Elastic Model Package (Package)**: a single model artifact on disk whose experts support at least three nested widths.
 - **Width / Width Skin**: the fraction of an expert's importance-ordered neurons that execute. Narrower widths are prefixes of wider ones.
+- **Skin shedding**: running experts at a narrower width, in response to memory pressure or a lower Objective. Only at Safe Boundaries (Requirement 7).
+- **Regrowth**: widening again, one step at a time, once headroom has held for the hold period (Requirement 7.6).
+- **Width adaptation**: skin shedding and regrowth together.
+- **Dynamic expert residency**: which tier (VRAM, RAM, or SSD) each expert chunk lives in, managed by the working-set policy (Requirement 6). Earlier documents say "dynamic weight residency" or "dynamic residency"; they mean the same thing.
 - **Precision Skin**: a lower-precision execution of an expert drawn from nested quantization of the same stored weights.
 - **Skin Profile**: a named combination of width and, if supported, precision, for example Full, Medium, Slim, Emergency.
 - **Mandatory Work**: shared layers, attention, and the narrowest expert slice. It always runs.
 - **Optional Work**: wider expert slices, extra precision, and extra context. It runs only when the budget allows.
 - **Objective**: the user-selected mode — Speed, Balanced, or Quality — that bounds how much optional work is allowed.
-- **VRAM Budget**: the GPU memory limit Molt must stay within. It is either detected or imposed, for example 4, 6, or 8 GB.
+- **VRAM Budget**: the GPU memory limit MaltOE must stay within. It is either detected or imposed, for example 4, 6, or 8 GB.
 - **RAM Budget**: an imposed limit on the system RAM available for warm expert weights, used to force the SSD tier into use on machines with large RAM.
 - **Working Set**: the set of distinct experts referenced within the last window of W tokens.
 - **Thrashing**: repeated eviction and reload of experts that belong to the working set.
@@ -74,7 +78,7 @@ These requirements apply throughout the spec and the write-up.
 
 #### Acceptance Criteria
 
-1. THE project SHALL run the chosen model on the RTX 4060 in these named baselines: (a) llama.cpp with full GPU offload where it fits, (b) llama.cpp with `--n-cpu-moe` static expert offload, and (c) Edge0-infer with its released model. Edge0 runs its own checkpoint, so its results SHALL be reported as a reference point and not as a same-model comparison.
+1. THE project SHALL run the chosen model on the RTX 4060 in these named baselines: (a) llama.cpp with full GPU offload where it fits, (b) llama.cpp with `--n-cpu-moe` static expert offload, (b2) llama.cpp with `--n-cpu-moe` plus its MoE expert cache `--moe-cache-mib`, the strongest stock setup, and (c) Edge0-infer with its released model. Edge0 runs its own checkpoint, so its results SHALL be reported as a reference point and not as a same-model comparison.
 2. THE baseline SHALL cover VRAM budgets of 4, 6, and 8 GB, context lengths of 2K, 4K, and 8K tokens, and chat, coding, and reasoning prompts.
 3. FOR EACH baseline run, THE project SHALL record TTFT, generation tok/s, prompt-processing tok/s, peak VRAM, peak system RAM, out-of-memory occurrence, and a quality score on the fixed evaluation set.
 4. THE Baseline Report SHALL state that 4 and 6 GB budgets simulate memory limits only and do not simulate the weaker compute of lower-tier GPUs.
@@ -84,11 +88,11 @@ These requirements apply throughout the spec and the write-up.
 
 ### Requirement 3: Hardware Profiling
 
-**User Story:** As a local user, I want Molt to detect my hardware on launch, so that I do not have to configure offloading or quantization by hand.
+**User Story:** As a local user, I want MaltOE to detect my hardware on launch, so that I do not have to configure offloading or quantization by hand.
 
 #### Acceptance Criteria
 
-1. WHEN Molt launches, THE Runtime SHALL detect GPU vendor and model, total and free VRAM, total and free system RAM, free SSD space at the Package location, and the available Engine backends.
+1. WHEN MaltOE launches, THE Runtime SHALL detect GPU vendor and model, total and free VRAM, total and free system RAM, free SSD space at the Package location, and the available Engine backends.
 2. WHEN profiling completes, THE Runtime SHALL display the detected values to the user.
 3. WHERE the user sets a VRAM Budget lower than detected free VRAM, THE Runtime SHALL use the user-set budget. WHERE the user sets a RAM Budget, THE Runtime SHALL keep warm expert weights within it.
 4. IF a required measurement cannot be obtained, THEN THE Runtime SHALL report which value is missing and SHALL fall back to a conservative default defined in design.
@@ -108,7 +112,7 @@ These requirements apply throughout the spec and the write-up.
 
 ### Requirement 5: Capacity Controller (Imprecise Computation Scheduler)
 
-**User Story:** As a local user, I want Molt to choose how much of each expert to run, so that I get a usable answer even when resources are tight.
+**User Story:** As a local user, I want MaltOE to choose how much of each expert to run, so that I get a usable answer even when resources are tight.
 
 #### Acceptance Criteria
 
@@ -138,7 +142,7 @@ These requirements apply throughout the spec and the write-up.
 
 ### Requirement 7: Joint Controller and Runtime Monitor
 
-**User Story:** As a local user, I want Molt to react when my GPU memory changes during a conversation, so that the conversation continues instead of crashing.
+**User Story:** As a local user, I want MaltOE to react when my GPU memory changes during a conversation, so that the conversation continues instead of crashing.
 
 #### Acceptance Criteria
 
@@ -152,6 +156,7 @@ These requirements apply throughout the spec and the write-up.
 8. THE Runtime SHALL NOT allocate GPU memory beyond the VRAM Budget, as measured by the Runtime Monitor.
 9. IF an out-of-memory error occurs in the Engine, THEN THE Runtime SHALL record it, preserve the conversation history, narrow the configuration, and attempt to resume the session. IF resume is not possible, THEN THE Runtime SHALL report the failure and its cause to the user and SHALL keep the conversation history available.
 10. THE Runtime SHALL log every controller decision with its inputs and the resulting configuration.
+11. THE Joint Controller SHALL offer two overload schemes from Liu et al. (1991, p. 67), selectable by the user: **Responsive** (default), which narrows the reply in progress at the next Safe Boundary, and **Guaranteed**, which finishes the reply in progress at its starting width and applies the narrower width from the next reply. WHILE the Guaranteed scheme holds a reply at its width under pressure, THE Runtime SHALL show that the reply is running over budget. IF the Engine reports an out-of-memory error under the Guaranteed scheme, THEN THE Joint Controller SHALL fall back to the Responsive scheme for that reply.
 
 ### Requirement 8: Chat Interface
 
@@ -192,7 +197,9 @@ These requirements apply throughout the spec and the write-up.
 5. THE harness SHALL output a performance envelope of quality against latency and memory, not only a ranking.
 6. THE harness SHALL report results that do not support the claim with the same prominence as results that do.
 7. THE fixed evaluation set SHALL be small, fast, and runnable offline, and SHALL consist of a perplexity measurement plus about 20 coding prompts and about 20 reasoning prompts. Design defines the exact contents.
-8. THE harness SHALL also run the named baselines from Requirement 2 (llama.cpp full offload, llama.cpp `--n-cpu-moe`, and Edge0-infer) on the same workload, and SHALL report Edge0 as a reference point on a different checkpoint.
+8. THE harness SHALL also run the named baselines from Requirement 2 (llama.cpp full offload, llama.cpp `--n-cpu-moe`, llama.cpp `--n-cpu-moe` with `--moe-cache-mib`, and Edge0-infer) on the same workload, and SHALL report Edge0 as a reference point on a different checkpoint.
+9. THE harness SHALL compare width reduction against expert tail-skip (computing only the highest-ranked routed experts of each token and skipping the rest), on the same model and workload, at the nearest matching number of active expert parameters per token, and SHALL show both in the same performance envelope. Tail-skip is a baseline only; MaltOE keeps top-K fixed (constraint above). IF width reduction does not give better quality than tail-skip at matching compute, THEN the write-up SHALL say so.
+10. THE harness SHALL report configuration A in two forms: A-stock, the unmodified fused expert, and A-chunked, the MaltOE package layout at full width, because the two run at different speeds (Feasibility Report 6.6a).
 
 ### Requirement 11: Success Criteria
 
@@ -222,7 +229,7 @@ These requirements apply throughout the spec and the write-up.
 
 ### Requirement 13: Backend Portability (Stretch)
 
-**User Story:** As an AMD GPU owner, I want the same Package to run on my card, so that Molt is not NVIDIA-only.
+**User Story:** As an AMD GPU owner, I want the same Package to run on my card, so that MaltOE is not NVIDIA-only.
 
 #### Acceptance Criteria
 
@@ -252,6 +259,13 @@ These requirements apply throughout the spec and the write-up.
 4. THE submission SHALL be made before December 4, 2026, 2:00 PM PT (December 5, 2026, 06:00 WITA), subject to re-checking the official Devpost rules.
 5. THE builder SHALL request Kiroween Kiro credits before December 1, 2026, 12:00 PM PT.
 6. THE project SHALL record any difference between the official Devpost rules and the dates in the handoff.
+7. THE README and the submission SHALL state the intended platform (Windows 11, NVIDIA GPU with 8 GB VRAM, CUDA). THE project SHALL install and run consistently on that platform and SHALL work as shown in the video and the text description (Official Rules §4, Functionality and Platforms). Other platforms SHALL NOT be listed as supported unless tested.
+8. THE submission SHALL give judges a test build: a GitHub Release with a Windows build and Quickstart instructions, free and unrestricted. THE repository and the test build SHALL stay available until the Judging Period ends (January 29, 2027, 1:00 PM PT). THE submitted state SHALL be marked with a git tag.
+9. THE README and the submission SHALL disclose all pre-existing code and work incorporated into the project, with licenses: the llama.cpp fork and its pinned commit, the model, the evaluation datasets, the main libraries, and the handoff planning document. Each third-party component SHALL be used under its license terms (Official Rules §4, New Projects Only and Third Party Integrations).
+10. THE demo video SHALL be public on YouTube, SHALL show MaltOE running on the device it was built for (the RTX 4060 laptop), and SHALL NOT include copyrighted music, third-party logos, or other third-party trademarks or copyrighted material without permission. How product names are shown is decided by the open question in `docs/kiroween-rules.md`.
+11. THE submission SHALL include a write-up on how Kiro was used, covering each feature in the Official Rules list that was used (Kiro clients, custom agents, hooks, specs vs vibe coding, steering, MCP, property-based testing, powers), and SHALL say plainly which were not used. The write-up SHALL be kept as a running draft in `docs/submission/kiro-writeup.md` and updated during the build, not reconstructed at the end.
+12. THE submission SHALL enter the Resurrection category and the Best Student Project: Resurrection bonus prize, with the student details the form requires. Other bonus prizes (Social Blitz, Bonus Blog) are optional and decided by the builder.
+13. ALL submission deliverables SHALL be tracked in `docs/submission/deliverables.md`, with an owner and status for each.
 
 ## Resolved Decisions (approved 2026-11-11)
 

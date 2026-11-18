@@ -46,6 +46,7 @@ struct options {
     uint32_t seed    = 1234;
     bool    list_devices = false;
     bool    views = false;   // also test width k as a prefix VIEW of the fused tensors (no chunk loop)
+    bool    pages = false;   // also test chunks stored as extra experts ("pages"), one mul_mat_id over 8*k page ids
 };
 
 static ggml_type parse_type(const std::string & s) {
@@ -78,6 +79,7 @@ static bool parse_args(int argc, char ** argv, options & o) {
         else if (a == "--seed")     o.seed      = (uint32_t) atoll(next("--seed"));
         else if (a == "--list-devices") o.list_devices = true;
         else if (a == "--views")    o.views = true;
+        else if (a == "--pages")    o.pages = true;
         else { fprintf(stderr, "unknown argument %s\n", a.c_str()); return false; }
     }
     return true;
@@ -185,6 +187,56 @@ static graph_pack make_graph(ggml_backend_t backend, const std::vector<expert_te
 static void free_graph(graph_pack & g) {
     ggml_gallocr_free(g.galloc);
     ggml_free(g.ctx);
+}
+
+// Pages: each chunk j of each expert e is stored as its own small expert, page p = j*n_expert + e, in ONE tensor
+// per projection: gate/up [n_embd, S, C*n_expert], down [S, n_embd, C*n_expert]. A width-k run maps the routed
+// expert ids to the 8*k page ids of chunks j < k (a get_rows on a small I32 table), runs ONE mul_mat_id per
+// projection over them, and sums the k partial outputs of each expert. The router weight of an expert is the same
+// for all its chunks, so summing before or after weighting gives the same result.
+struct pages_tensors {
+    ggml_tensor * gate = nullptr;
+    ggml_tensor * up   = nullptr;
+    ggml_tensor * down = nullptr;
+    std::vector<ggml_tensor *> table; // table[k-1]: I32 [k, n_expert], table[e][j] = j*n_expert + e
+};
+
+static graph_pack make_pages_graph(ggml_backend_t backend, const pages_tensors & pw, int k, int64_t n_used,
+                                   ggml_tensor * x, ggml_tensor * ids) {
+    graph_pack g;
+    g.buf.resize(ggml_tensor_overhead() * 256 + ggml_graph_overhead() + 4096);
+    ggml_init_params p = { g.buf.size(), g.buf.data(), true };
+    g.ctx = ggml_init(p);
+    g.graph = ggml_new_graph(g.ctx);
+
+    const int64_t n_tokens = ids->ne[1];
+    ggml_tensor * flat  = ggml_reshape_1d(g.ctx, ids, ggml_nelements(ids));            // [n_used*n_tokens]
+    ggml_tensor * pids  = ggml_get_rows(g.ctx, pw.table[k - 1], flat);                  // I32 [k, n_used*n_tokens]
+    pids = ggml_reshape_2d(g.ctx, pids, (int64_t) k * n_used, n_tokens);                // per token: e0j0..e0j(k-1), e1j0, ...
+    ggml_tensor * gt = ggml_mul_mat_id(g.ctx, pw.gate, x, pids);                       // [S, k*n_used, n_tokens]
+    ggml_tensor * ut = ggml_mul_mat_id(g.ctx, pw.up,   x, pids);
+    ggml_tensor * h  = ggml_swiglu_split(g.ctx, gt, ut);
+    ggml_tensor * d  = ggml_mul_mat_id(g.ctx, pw.down, h, pids);                       // [n_embd, k*n_used, n_tokens]
+    ggml_tensor * out;
+    if (k == 1) {
+        out = d;
+    } else {
+        ggml_tensor * d4 = ggml_reshape_4d(g.ctx, d, d->ne[0], k, n_used, n_tokens);
+        out = nullptr;
+        for (int j = 0; j < k; ++j) {
+            ggml_tensor * v = ggml_view_3d(g.ctx, d4, d4->ne[0], n_used, n_tokens, d4->nb[2], d4->nb[3], j * d4->nb[1]);
+            out = out ? ggml_add(g.ctx, out, v) : ggml_cont(g.ctx, v);
+        }
+    }
+    ggml_set_output(out);
+    ggml_build_forward_expand(g.graph, out);
+    g.out = out;
+    g.galloc = ggml_gallocr_new(ggml_backend_get_default_buffer_type(backend));
+    if (!ggml_gallocr_alloc_graph(g.galloc, g.graph)) {
+        fprintf(stderr, "graph allocation failed (pages)\n");
+        exit(1);
+    }
+    return g;
 }
 
 // ---------------------------------------------------------------------------
@@ -345,7 +397,7 @@ int main(int argc, char ** argv) {
     }
 
     // ----- device tensors -----
-    const size_t n_w = 3 + 3 * C + 2 + 3 * C; // fused, chunks, inputs, prefix views
+    const size_t n_w = 3 + 3 * C + 2 + 3 * C + 3 + C; // fused, chunks, inputs, prefix views, pages, page tables
     std::vector<uint8_t> wbuf(ggml_tensor_overhead() * (n_w + 8));
     ggml_init_params wp = { wbuf.size(), wbuf.data(), true };
     ggml_context * wctx = ggml_init(wp);
@@ -373,6 +425,15 @@ int main(int argc, char ** argv) {
         views[j].up   = ggml_view_3d(wctx, fused.up,   o.n_embd, w, o.n_expert, fused.up->nb[1],   fused.up->nb[2],   0);
         views[j].down = ggml_view_3d(wctx, fused.down, w, o.n_embd, o.n_expert, fused.down->nb[1], fused.down->nb[2], 0);
     }
+    pages_tensors pw;
+    if (o.pages) {
+        pw.gate = ggml_new_tensor_3d(wctx, type, o.n_embd, S, (int64_t) C * o.n_expert);
+        pw.up   = ggml_new_tensor_3d(wctx, type, o.n_embd, S, (int64_t) C * o.n_expert);
+        pw.down = ggml_new_tensor_3d(wctx, type, S, o.n_embd, (int64_t) C * o.n_expert);
+        for (int k = 1; k <= C; ++k) {
+            pw.table.push_back(ggml_new_tensor_2d(wctx, GGML_TYPE_I32, k, o.n_expert));
+        }
+    }
     ggml_tensor * tx   = ggml_new_tensor_3d(wctx, GGML_TYPE_F32, o.n_embd, 1, o.n_tokens);
     ggml_tensor * tids = ggml_new_tensor_2d(wctx, GGML_TYPE_I32, o.n_used, o.n_tokens);
 
@@ -389,6 +450,22 @@ int main(int argc, char ** argv) {
         ggml_backend_tensor_set(chunks[j].up,   up_c[j].data(),   0, up_c[j].size());
         ggml_backend_tensor_set(chunks[j].down, down_c[j].data(), 0, down_c[j].size());
     }
+    if (o.pages) {
+        // chunk j of every expert, one after another: exactly the chunk tensors concatenated along the expert axis
+        size_t off_g = 0, off_u = 0, off_d = 0;
+        for (int j = 0; j < C; ++j) {
+            ggml_backend_tensor_set(pw.gate, gate_c[j].data(), off_g, gate_c[j].size()); off_g += gate_c[j].size();
+            ggml_backend_tensor_set(pw.up,   up_c[j].data(),   off_u, up_c[j].size());   off_u += up_c[j].size();
+            ggml_backend_tensor_set(pw.down, down_c[j].data(), off_d, down_c[j].size()); off_d += down_c[j].size();
+        }
+        for (int k = 1; k <= C; ++k) {
+            std::vector<int32_t> t((size_t) k * o.n_expert);
+            for (int64_t e = 0; e < o.n_expert; ++e) {
+                for (int j = 0; j < k; ++j) { t[(size_t) e * k + j] = (int32_t) (j * o.n_expert + e); }
+            }
+            ggml_backend_tensor_set(pw.table[k - 1], t.data(), 0, t.size() * sizeof(int32_t));
+        }
+    }
     ggml_backend_tensor_set(tx,   x.data(),   0, x.size() * sizeof(float));
     ggml_backend_tensor_set(tids, ids.data(), 0, ids.size() * sizeof(int32_t));
 
@@ -398,6 +475,11 @@ int main(int argc, char ** argv) {
     std::vector<graph_pack> gk;
     gk.reserve(C);
     for (int k = 1; k <= C; ++k) { gk.push_back(make_graph(backend, chunks, k, tx, tids)); }
+    std::vector<graph_pack> gp;
+    if (o.pages) {
+        gp.reserve(C);
+        for (int k = 1; k <= C; ++k) { gp.push_back(make_pages_graph(backend, pw, k, o.n_used, tx, tids)); }
+    }
     std::vector<graph_pack> gv;
     if (o.views) {
         gv.reserve(C);
@@ -462,6 +544,22 @@ int main(int argc, char ** argv) {
         }
     }
 
+    if (o.pages) {
+        printf("  chunks stored as extra experts (pages), one mul_mat_id per projection:\n");
+        for (int k = 1; k <= C; ++k) {
+            std::vector<float> out_p, ref_p, out_c;
+            run(gp[k - 1], out_p);
+            run(gk[k - 1], out_c);
+            reference_prefix(o, gate_ref, up_ref, down_ref, x, ids, (int64_t) k * S, ref_p);
+            const diff_stats vs_ref = compare(out_p, ref_p);
+            const diff_stats vs_chunked = compare(out_p, out_c);
+            const bool pass = vs_ref.rel_rms <= tol_vs_reference && vs_chunked.rel_rms <= tol_chunk_vs_fused;
+            printf("  pages k=%d (%3d%% width): vs f32 prefix reference %.3e | vs chunked %.3e  %s\n",
+                   k, (int) (100.0 * k / C), vs_ref.rel_rms, vs_chunked.rel_rms, pass ? "PASS" : "FAIL");
+            ok = ok && pass;
+        }
+    }
+
     // a narrower width must actually change the result, otherwise the test proves nothing
     {
         std::vector<float> a, b;
@@ -483,6 +581,7 @@ int main(int argc, char ** argv) {
     std::vector<graph_pack *> variants = { &gf };
     for (auto & g : gk) { variants.push_back(&g); }
     for (auto & g : gv) { variants.push_back(&g); }
+    for (auto & g : gp) { variants.push_back(&g); }
     std::vector<timing> times(variants.size());
     for (auto * v : variants) { warm_up(backend, v->graph, o.warmup_ms / (int) variants.size()); }
     warm_up(backend, gf.graph, o.warmup_ms);
@@ -509,6 +608,13 @@ int main(int argc, char ** argv) {
                k, (int) (100.0 * k / C), t.median(), t.lo(), t.hi(), t.spread_pct(), t.median() / t_fused);
         noisy = noisy || t.spread_pct() > 25.0;
     }
+    for (size_t i = 0; i < gp.size(); ++i) {
+        const int k = (int) i + 1;
+        const timing & t = times[1 + C + gv.size() + i];
+        printf("  pages k=%d (%3d%% width):      %8.4f ms   (min %.4f, max %.4f, spread %.0f%%)   %.2fx of fused\n",
+               k, (int) (100.0 * k / C), t.median(), t.lo(), t.hi(), t.spread_pct(), t.median() / t_fused);
+        noisy = noisy || t.spread_pct() > 25.0;
+    }
     if (noisy) {
         printf("  NOTE: spread above 25%%. Plug in the laptop, close other GPU programs, and run again; treat these numbers as rough.\n");
     }
@@ -517,6 +623,7 @@ int main(int argc, char ** argv) {
     free_graph(gf);
     for (auto & g : gk) { free_graph(g); }
     for (auto & g : gv) { free_graph(g); }
+    for (auto & g : gp) { free_graph(g); }
     ggml_backend_buffer_free(wbuffer);
     ggml_free(wctx);
     ggml_backend_free(backend);
