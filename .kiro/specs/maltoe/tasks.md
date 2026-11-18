@@ -216,6 +216,12 @@
 - [ ] 15. Stretch: beyond v1
   - [ ] 15.1 Precision skins: assess nested quantization within the chunk layout. Design note only, unless time remains.
   - [ ] 15.2 DeepSeek V4.1 Flash: only after Req 11.1–11.4 pass. Re-verify all V4.1 figures, assess disk/RAM needs against the test machines, and run as a closing beat if feasible.
+  - [ ] 15.3 Scale check on a rented GPU (only after Req 11.1–11.4 pass on the laptop; proposed by the builder 2026-11-18)
+    - Goal: show the same controller works when the model is far larger than a data-centre GPU's VRAM, keeping roughly the laptop's model-to-VRAM ratio (18.6 GB / 8 GB ≈ 2.3x).
+    - Default model: **Qwen3-235B-A22B** at Q4 (about 140 GB, estimate) on one 80 GB GPU. It has the same `qwen3moe` architecture as the 30B, so the converter and engine patches carry over unchanged. Verify its layer and expert config from the model card first. DeepSeek V4.1 Flash (Task 15.2) needs a different architecture and stays second.
+    - Run: build on Linux; convert (importance run, package); the 2x2 at one budget; the Live Squeeze with the active VRAM filler. On Linux, running out of VRAM should give an OOM error, not the Windows slowdown, so this also tests Req 7.9 recovery. Record the machine manifest.
+    - Cost (estimate): one H100 80 GB at about $1.4–3.5 per hour on marketplace clouds ([IntuitionLabs](https://intuitionlabs.ai/articles/h100-rental-prices-cloud-comparison), [Jarvislabs](https://docs.jarvislabs.ai/blog/h100-price), Nov 2026), plus storage. Expect about 6–12 hours with downloads, so about $10–40. Re-check prices before renting.
+    - Claim only what was run. "The same controller ran Qwen3-235B-A22B on one 80 GB GPU", not "scales to frontier models". The video's main demo stays on the laptop (Official Rules: show the device it was built for); the cloud result goes in the README and at most one closing slide, labelled with the hardware.
   - _Requirements: 4.5, 14.1–14.3_
 
 - [ ] 16. Demo and submission
