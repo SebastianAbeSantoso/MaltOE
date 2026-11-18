@@ -53,4 +53,13 @@ Odd regularity: "Titanic" appears in the top 10 for many unrelated famous things
 
 The original claim is dead; a better one replaced it. DeepSeek-V4.1-Flash's 189 GiB Engram tables can be read like a dictionary of associations, by hash address, without running the model: about 12 KB fetched per phrase per layer, no GPU. Prior art found earlier ([EngramEdit](https://arxiv.org/abs/2610.10533), [GateRQ](https://arxiv.org/pdf/2610.35985.pdf)) edits or ablates the tables. Reading them out directly was not found.
 
-Possible framing (verify sources before use): the word *engram* comes from Richard Semon's memory-trace theory (early 1900s), and Karl Lashley's search for where engrams live in the brain ("In Search of the Engram", 1950) famously failed. Here an engram can be read at a known address. **Both historical claims are from memory and must be checked against the sources** (research-integrity rule).
+Possible framing, **checked 2026-11-19:**
+- Richard Semon introduced the term "engram" for a memory trace in *Die Mneme* (1904) ([Josselyn, Köhler & Frankland, J. Neurosci. 2017, "Heroes of the Engram"](https://pmc.ncbi.nlm.nih.gov/articles/PMC6596490/)).
+- Karl Lashley's "In Search of the Engram" (1950) summarised about 30 years of cortical lesion experiments in rats. He concluded that memories are not localized but distributed within functional areas of the cortex ([Bruce 2001, "Fifty years since Lashley's In search of the Engram"](https://pubmed.ncbi.nlm.nih.gov/11770197)). His closing remark that learning "just is not possible" is quoted in later reviews ([Springer chapter](https://link.springer.com/chapter/10.1007/978-1-4615-9843-5_1)).
+- So the hook holds: in DeepSeek-V4.1 an "engram" has an exact address, computable from the text, and can be read without running the model.
+
+## Other checks (2026-11-19)
+
+- **Browser access:** the Hugging Face CDN answers range requests with `access-control-allow-origin: *` and allows the `Range` header in preflight. A static web page can fetch rows directly, with no server.
+- **Prior art for reading the rows out:** a further search found compression (CP, GateRQ), architecture variants (tokenizer-agnostic Engram), editing (EngramEdit) and ablation, but no direct readout.
+- **Open:** the video rule on third-party trademarks applies to showing "DeepSeek" by name (see `docs/kiroween-rules.md`).
