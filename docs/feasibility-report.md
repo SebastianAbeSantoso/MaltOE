@@ -11,7 +11,7 @@ Evidence labels used below: **verified** means I read it in a primary source or 
 | G0 Novelty | Does existing work already adapt width and residency together, online, under a changing memory budget with a user objective? | **Decided** | Not found. Claim stands as approved. Three prior-art additions needed in the README (section 3). |
 | G1 Model | Is Qwen3-30B-A3B usable? | **Decided** | Yes. Apache-2.0, config matches design.md exactly, official GGUFs exist. |
 | G2 Engine | Can the llama.cpp fork run variable-width experts and dynamic residency? | **Half answered** | Chunked experts are correct on CPU. **Upstream llama.cpp already has an expert cache that does the VRAM paging.** CUDA timings and cache behaviour need your runs (Steps A, B). |
-| G3 Width quality | Does a width-reduced Qwen3-30B-A3B stay useful? | **Waiting for hardware** | Scripts tested; Step D. |
+| G3 Width quality | Does a width-reduced Qwen3-30B-A3B stay useful? | **Running** (partial results in section 7) | k = 2: perplexity 1.25x full width, coding 3/5 vs 4/5, reasoning 5/5 vs 5/5. k = 1 and the random control pending. |
 | G4 Budget enforcement | Do the VRAM and RAM fillers create real pressure on Windows? | **Decided on the laptop** | An idle VRAM filler does not; an active one does, and the result is a silent slowdown, not an error. The RAM filler works. PC check pending. |
 
 ## 2. Findings that change the spec
@@ -348,14 +348,26 @@ Method ([`spikes/width_emulation`](../spikes/width_emulation/make_variant.py)): 
 
 Deviations from tasks.md 1.5: (a) the base is Q4_K_M, not Q8_0 (finding 3); (b) no physical permutation is written, because emulation by zeroing is equivalent; (c) the smoke subset is the first 5 of a seeded 20-problem draw per set, and the same 20 will be Task 3's frozen set.
 
-| Variant | wikitext-2 perplexity | Coding (n/5) | Reasoning (n/5) | Importance mass kept |
-| --- | --- | --- | --- | --- |
-| k = 3 (full) | *pending* | | | |
-| k = 2 | *pending* | | | |
-| k = 1 | *pending* | | | |
-| k = 1, random neurons | *pending* | | | |
+**Partial results, laptop, 2026-11-18 (run still going: k = 1 and the random control are pending).** RTX 4060 Laptop, all 48 layers of experts on the CPU (`-ncmoe 48`), Q4_K_M base, wikitext-2 test at 64 x 512 tokens.
+
+| Variant | wikitext-2 perplexity | vs full width | Coding (n/5) | Reasoning (n/5) | Importance mass kept (mean of 48 layers; min to max) |
+| --- | --- | --- | --- | --- | --- |
+| k = 3 (full) | 9.2921 ± 0.2223 | 1.00x | 4/5 | 5/5 | 100% |
+| k = 2 | 11.6127 ± 0.2828 | 1.25x | 3/5 | 5/5 | 76.5% (74.2 to 85.2) |
+| k = 1 | *running* | | | | 46.5% (42.9 to 59.9) |
+| k = 1, random neurons | *pending* | | | | |
 
 Five problems per set means each difference of one problem is 20 percentage points. The perplexity column is the more reliable signal; the problem counts only show gross failure.
+
+**What the partial results say (not yet the G3 decision):**
+
+- **k = 2 costs 25% in perplexity** (9.29 to 11.61). The two error bars don't overlap, so this is a real loss, not noise. Wikitext-2 perplexity is a general-text measure; how much 25% matters for the demo task is what the coding and reasoning counts are for.
+- **The smoke counts barely move at k = 2:** reasoning stays 5/5, coding drops from 4/5 to 3/5 (HumanEval/83 newly fails; HumanEval/93 fails at both widths). One problem is within the noise of a 5-problem set.
+- **Importance is spread, not concentrated.** Keeping 67% of the neurons keeps only 76.5% of the importance mass, and keeping 33% keeps 46.5%. A strongly concentrated ranking would keep much more. The first three layers and the last eleven (37–47) are more concentrated than the middle. This hints that a per-layer width would lose less than one global width. That is not tested, and per-layer width is not in v1.
+- **Calibration coverage.** Up to 3 of 128 experts per layer were never routed to by the 128k-token calibration text (layers 42–44 have the most). For those experts the ranking falls back to the down-projection norm alone (`make_variant.py`, `importance`). `llama-imatrix` reported these as "partial data" warnings (93.75% to 99.22% of experts covered).
+- **Calibration perplexity** (from `llama-imatrix`, on the calibration text itself, 250 x 512 tokens): 5.7836 ± 0.0691. Not comparable with the wikitext-2 test numbers above.
+
+**Run time:** `llama-imatrix` took 6 h 19 min for 250 chunks, and each perplexity run took 65 to 90 min, because every expert ran on the CPU with the model larger than free RAM (finding in 6.6c). Each smoke eval took about 12 min (50 to 90 s per problem). The script's estimate of "an hour to several hours" was too low for this laptop; it should have been sized from free RAM.
 
 ## 8. G4 and Edge0 (pending)
 
