@@ -549,4 +549,13 @@ Candidate from the builder (2026-11-16): open with the asterisk. "An 8 GB GPU ca
 
 Recommendation: **B**, with a short feasibility spike first (two expert banks of different types in one MoE layer on the pinned llama.cpp, and a full read of DyMoE's runtime policy). Nothing here is applied to the spec until the builder decides.
 
+**Parked by the builder (2026-11-19): the "shared GPU" plan, kept as a fallback while another topic is tried.**
+
+- Pitch: a game launching mid-chat makes stock llama.cpp slow 3–5x with no error (Step C). MaltOE steps its experts down from Q4 to Q2 (quality cost 8%, measured), holds its speed, and steps back up when the game closes.
+- Papers: Denning (FJCC 1968) on thrashing when several programs share memory under a global policy; Liu et al. (1991, p. 59) on running the alternate version during a transient overload.
+- Gating tests, none run yet:
+  1. ghost-infer, Krasis and FreeToken under the Step C active filler (builder, about 1 h);
+  2. a two-bank (Q2 + Q4) MoE layer in the pinned llama.cpp (sandbox);
+  3. a full read of DyMoE's runtime policy (sandbox).
+
 Open items: the CRISP source code (not released) and WiSP's behaviour under an external VRAM change (unverified). The pinned commit builds on Windows with CUDA 12.9 and MSVC 19.39 (verified on the laptop, 2026-11-16).
