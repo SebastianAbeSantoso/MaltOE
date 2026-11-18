@@ -49,7 +49,7 @@
     - Is `llama_memory_seq_rm` (or its equivalent at this commit) available for removing a partial KV position?
     - _Requirements: 1.4, 1.7_
 
-  - [ ] 1.5 G3 Width quality, emulated without engine changes [HW-L] (scripts ready: `spikes/width_emulation/`, Step D) Importance statistics come from the Q4_K_M file (approved change 5).
+  - [x] 1.5 G3 Width quality, emulated without engine changes [HW-L] (done 2026-11-18, about 13 h: k = 2 usable at 1.25x perplexity, k = 1 fails at 2.31x and 0/10, random k = 1 at 11.7x; proposed partial pass, report section 7) Importance statistics come from the Q4_K_M file (approved change 5).
     - Write `spikes/width_emulation.py` using `gguf-py`. It loads a Q8_0 GGUF, computes importance per expert neuron from the imatrix and down-projection column norms, and permutes neurons by importance. For each `k ∈ {1, 2}` it zeroes the gate and up rows of neurons beyond `k·256`, which exactly emulates width `k` because `silu(0)·x = 0`. It writes one GGUF per `k`.
     - Control: also write a `k = 1` model that keeps a *random* 256 neurons instead of the top 256. This shows whether importance ordering matters.
     - The builder runs stock `llama-perplexity` and a 5-coding + 5-reasoning smoke subset of the eval set at k = 3, 2, 1, and the random k = 1 control.
@@ -83,6 +83,8 @@
 
   - [x] 1.7b Read `src/llama-moe-cache.cpp` end to end and register one chunked layer with the cache, to settle whether chunks can be cached as extra logical layers (report section 6.5). Done 2026-11-17: chunks fit as extra experts ("pages") with almost no cache change, not as extra layers; remaining gaps are resize, live counters, and the working-set policy (report 6.6e).
   - [ ] 1.7c [HW-L] Run `chunked_moe --pages` on CUDA (decode and prefill) to see whether the pages layout removes the chunking price (report 6.6e).
+  - [ ] 1.5b [HW-L] C = 4 width emulation (fallback 6): `run_g3.ps1 -SkipImatrix -Variants c4k3,c4k2` (75% and 50%), about 3 h with the imatrix reused.
+  - [ ] 1.5c [HW-L] Quant comparison (advantage test 2): perplexity of Q3_K_M and Q2_K files of Qwen3-30B-A3B with the same text and chunks as G3, against k = 2 at similar expert bytes. Decides whether width beats a smaller file on static quality.
   - [ ] 1.11 Theory checks: test the two papers' own predictions on our data (sources and labels: `docs/theory-sources.md`)
     - [ ] 1.11a Routing-trace tool: record the experts each token selects, per layer, through llama.cpp's eval callback, without patching the engine. Test on the CPU in the sandbox with a small MoE model.
     - [ ] 1.11b [HW-L] Record one trace of Qwen3-30B-A3B on the frozen coding and reasoning prompts (about 20 minutes).

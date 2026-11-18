@@ -11,7 +11,7 @@ Evidence labels used below: **verified** means I read it in a primary source or 
 | G0 Novelty | Does existing work already adapt width and residency together, online, under a changing memory budget with a user objective? | **Decided** | Not found. Claim stands as approved. Three prior-art additions needed in the README (section 3). |
 | G1 Model | Is Qwen3-30B-A3B usable? | **Decided** | Yes. Apache-2.0, config matches design.md exactly, official GGUFs exist. |
 | G2 Engine | Can the llama.cpp fork run variable-width experts and dynamic residency? | **Half answered** | Chunked experts are correct on CPU. **Upstream llama.cpp already has an expert cache that does the VRAM paging.** CUDA timings and cache behaviour need your runs (Steps A, B). |
-| G3 Width quality | Does a width-reduced Qwen3-30B-A3B stay useful? | **Running** (partial results in section 7) | k = 2: perplexity 1.25x full width, coding 3/5 vs 4/5, reasoning 5/5 vs 5/5. k = 1 and the random control pending. |
+| G3 Width quality | Does a width-reduced Qwen3-30B-A3B stay useful? | **Partial pass** (section 7; decision at 1.10) | k = 2 (67%): perplexity 1.25x, coding 3/5 vs 4/5, reasoning 5/5. k = 1 (33%): 2.31x, 0/10, fails. Random k = 1: 11.7x, so importance ordering matters. Next: C = 4 emulation and the quant comparison. |
 | G4 Budget enforcement | Do the VRAM and RAM fillers create real pressure on Windows? | **Decided on the laptop** | An idle VRAM filler does not; an active one does, and the result is a silent slowdown, not an error. The RAM filler works. PC check pending. |
 
 ## 2. Findings that change the spec
@@ -348,24 +348,40 @@ I am not giving an hours estimate; the real cost is item 3, and a short spike (r
 | Chunked experts on CUDA: ms per layer, k = 1..3 vs fused | A | **Measured** (see 6.6a): 1.97x decode and 1.48x prefill at full width; narrower widths scale down as expected |
 | Upstream cache: decode tok/s, hit rate, bytes uploaded, disk read, for static `-ncmoe` vs cache sizes | B | **Done** (see 6.6c and 6.6d) |
 
-## 7. G3: width quality (pending)
+## 7. G3: width quality
 
 Method ([`spikes/width_emulation`](../spikes/width_emulation/make_variant.py)): width k keeps the k x 256 most important neurons of each expert and zeroes the gate and up rows of the rest. A zero gate row gives silu(0) = 0, so the neuron contributes nothing, which is exactly what running a narrower expert computes. No reordering of stored tensors is needed to measure quality, and the file stays valid for stock llama.cpp. Importance is sqrt(mean(h^2)) x the L2 norm of the neuron's down-projection column, using llama-imatrix statistics from a calibration text of wikitext-2 **train** and llama.cpp source code. The evaluation uses wikitext-2 **test**, HumanEval, and GSM8K, so calibration and evaluation do not overlap. Controls: random neurons at k = 1.
 
 Deviations from tasks.md 1.5: (a) the base is Q4_K_M, not Q8_0 (finding 3); (b) no physical permutation is written, because emulation by zeroing is equivalent; (c) the smoke subset is the first 5 of a seeded 20-problem draw per set, and the same 20 will be Task 3's frozen set.
 
-**Partial results, laptop, 2026-11-18 (run still going: k = 1 and the random control are pending).** RTX 4060 Laptop, all 48 layers of experts on the CPU (`-ncmoe 48`), Q4_K_M base, wikitext-2 test at 64 x 512 tokens.
+**Results, laptop, 2026-11-18 (run took about 13 h).** RTX 4060 Laptop, all 48 layers of experts on the CPU (`-ncmoe 48`), Q4_K_M base, wikitext-2 test at 64 x 512 tokens.
 
 | Variant | wikitext-2 perplexity | vs full width | Coding (n/5) | Reasoning (n/5) | Importance mass kept (mean of 48 layers; min to max) |
 | --- | --- | --- | --- | --- | --- |
 | k = 3 (full) | 9.2921 ± 0.2223 | 1.00x | 4/5 | 5/5 | 100% |
 | k = 2 | 11.6127 ± 0.2828 | 1.25x | 3/5 | 5/5 | 76.5% (74.2 to 85.2) |
-| k = 1 | *running* | | | | 46.5% (42.9 to 59.9) |
-| k = 1, random neurons | *pending* | | | | |
+| k = 1 | 21.498 ± 0.546 | 2.31x | 0/5 | 0/5 | 46.5% (42.9 to 59.9) |
+| k = 1, random neurons | 108.613 ± 3.445 | 11.7x | 0/5 | 0/5 | 33.4% |
 
 Five problems per set means each difference of one problem is 20 percentage points. The perplexity column is the more reliable signal; the problem counts only show gross failure.
 
-**What the partial results say (not yet the G3 decision):**
+**What the results say:**
+
+- **k = 1 fails.** Perplexity 2.3x full width, and 0 of 10 problems solved. A 33%-wide expert does not give a usable result on this model without training.
+- **k = 2 is usable but costly.** See below.
+- **Importance ordering works.** At k = 1, importance-chosen neurons give perplexity 21.5; random neurons give 108.6, five times worse. Picking which neurons to keep is most of what makes width viable.
+- **Quality is monotone in width** (9.29 < 11.61 < 21.50), as Liu et al.'s monotone-task model requires (theory check 1.11f, part 1: holds).
+- **The error curve is convex in work given** (in Liu et al.'s sense, p. 64): the first optional chunk removes most of the error (21.5 → 11.6), the second much less (11.6 → 9.3) (theory check 1.11f, part 3).
+- **Importance mass under-predicts the loss at k = 1.** Dropping 23.5% of the mass costs 1.25x perplexity, but dropping 53.5% costs 2.31x. The relation is not linear, so importance mass alone is not a good error estimate near the floor (theory-sources: "ours, must check").
+- The "GPU MiB used" column (1,513 MiB in every row) is `nvidia-smi` after the smoke eval with every expert on the CPU. It says nothing about width and is left out.
+
+**G3 decision (proposed, for the builder at 1.10): partial pass.** Width at 67% is usable; 33% is not. Consequences:
+
+1. **The mandatory part is chunks 1 and 2, not chunk 1.** In Liu et al. (1991, p. 58) the mandatory subtask is what an acceptable result requires. Chunk 1 alone is not acceptable here, so with C = 3 only one chunk is optional and the range is 100% to 67%.
+2. **Fallback 6 applies: test C = 4** (25 / 50 / 75 / 100%). It adds 75% and 50% steps. The emulation needs no new block types (rows are zeroed), so it runs now with `-Variants c4k3,c4k2 -SkipImatrix` (about 3 h; imatrix reused). Real C = 4 packages need 32-element block types for the down projection (q8_0 etc.), as already noted.
+3. **The quant comparison becomes the deciding test** (advantage plan, test 2). At 67% width the expert bytes drop by a third for 1.25x perplexity. A Q3_K_M file is also about a quarter smaller than Q4_K_M. If a lower-bit file costs less quality at similar bytes, width's static case is lost and its only advantage is switching live without reloading. Not measured yet.
+
+**Earlier partial-results notes:**
 
 - **k = 2 costs 25% in perplexity** (9.29 to 11.61). The two error bars don't overlap, so this is a real loss, not noise. Wikitext-2 perplexity is a general-text measure; how much 25% matters for the demo task is what the coding and reasoning counts are for.
 - **The smoke counts barely move at k = 2:** reasoning stays 5/5, coding drops from 4/5 to 3/5 (HumanEval/83 newly fails; HumanEval/93 fails at both widths). One problem is within the noise of a 5-problem set.

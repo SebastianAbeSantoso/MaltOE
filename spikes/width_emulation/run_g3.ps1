@@ -131,7 +131,12 @@ foreach ($v in $Variants) {
         "k2"        { $mk = @("--k", "2") }
         "k1"        { $mk = @("--k", "1") }
         "k1-random" { $mk = @("--k", "1", "--select", "random", "--seed", "7") }
-        default     { throw "unknown variant $v" }
+        default {
+            # "c4k3" = keep 3 of 4 chunks (75%), "c4k2" = 2 of 4 (50%), and so on
+            if ($v -match '^c(\d+)k(\d+)$' -and [int]$Matches[2] -ge 1 -and [int]$Matches[2] -le [int]$Matches[1]) {
+                $mk = @("--chunks", $Matches[1], "--k", $Matches[2])
+            } else { throw "unknown variant $v" }
+        }
     }
     if ($v -ne "k3") {
         PyRun "make_variant.py" (@("--base", $BaseGguf, "--imatrix", $imatrix, "--out", $variantFile, "--force") + $mk) (Join-Path $results "make-$v.log") | Out-Null
