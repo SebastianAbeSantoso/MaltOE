@@ -35,4 +35,4 @@ MaltOE is judged partly on honesty about prior art. These rules apply to code co
 - Every statement about Liu et al. (imprecise computation) or Denning (working set, thrashing) must come from `docs/theory-sources.md`, which records what the papers actually say, with sections and equations. Do not describe either paper from memory.
 - If a needed claim is not in that file, read the source first and add it there, with where it was found.
 - Keep the file's labels when writing about MaltOE: **match** (used as the paper defines it), **adaptation** (carried to a new setting; say so), **ours** (not in the paper).
-- The 1991 Liu et al. paper itself has not been read (paywalled). Cite it for the idea and its abstract only; cite the 1987 reports and Feng and Liu (1997) for definitions.
+- The 1991 Liu et al. paper has been read in full (PDF supplied by the builder, not committed). Cite it with page numbers as recorded in `docs/theory-sources.md`.
