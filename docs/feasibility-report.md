@@ -74,6 +74,8 @@ The first G0 pass searched papers and a few named systems. A GitHub search after
 3. **Demo beat 1 is weaker than the handoff assumed.** A 35B model on a 6 GB laptop GPU at chat speed is already published by others, and stock `llama.cpp --n-cpu-moe` is far from "crawls below 1 tok/s". The comparison must be against `--n-cpu-moe` plus `--moe-cache-mib`, not a naive load. Beat 2 (the live squeeze with a controlled quality trade) is the real differentiator.
 4. **ghost-infer (added 2026-11-18) sets the speed bar on our model and platform.** MaltOE is a llama.cpp fork, and its decode speed will be near llama.cpp's, so on raw tok/s it will be behind ghost-infer. MaltOE must not be pitched on speed. Qwen3-30B-A3B on an 8 GB card is also no longer a hook by itself (builder, 2026-11-18). See section 9 for the proposed response.
 
+5. **Landscape matrix (2026-11-18):** [`landscape-matrix.md`](landscape-matrix.md) compares about 30 engines and papers on residency, lossy knob, runtime adaptation and live VRAM response. New prior art found there: **MatMoE** (ICCAD 2026, nested per-expert precision tuned live to a latency target, on llama.cpp), **FreeToken** (runtime VRAM re-allocation between expert cache and KV), and **Krasis** (VRAM pressure detection). Proposed, not applied: cite all three, drop the precision-skin stretch or credit it to MatMoE, and test ghost-infer, Krasis and FreeToken under the active VRAM filler.
+
 ### 3.2c Name checks (2026-11-16)
 
 | Name | Finding |

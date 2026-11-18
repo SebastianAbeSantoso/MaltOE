@@ -75,4 +75,5 @@ Each item has the evidence in the report or the commit history.
 ## Research with Kiro
 
 - Web search and fetch for prior art (WiSP, CRISP, MoSE, Edge0 and others), a survey of similar GitHub projects (feasibility report 3.2b), toolchain compatibility (CUDA 12.9 vs 13, MSVC versions), and the name check that led to the rename from Molt to MaltOE. NVIDIA already has a "Molt" project.
+- After the builder pointed out ghost-infer, Kiro surveyed about 30 local MoE engines and papers into a matrix (`docs/landscape-matrix.md`). It found new prior art (MatMoE, FreeToken, Krasis) that narrowed the novelty claim again, two weeks before the deadline.
 - Devpost blocks automated reads, so the builder pasted the rules and Kiro recorded them (`docs/kiroween-rules.md`).
