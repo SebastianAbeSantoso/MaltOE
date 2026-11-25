@@ -1,6 +1,6 @@
 # ELASTIC — Kiroween handoff
 
-> Source of truth for Molt (codename ELASTIC). Stored verbatim from the planning handoff on 2026-11-11, except the copy-paste starter prompt at the end, which was used to start the Kiro session and is omitted here. Figures in this document are as reported by the cited sources and must be re-verified before use in any pitch.
+> Source of truth for MaltOE (codename ELASTIC; earlier working name Molt). Stored verbatim from the planning handoff on 2026-11-11, except the copy-paste starter prompt at the end, which was used to start the Kiro session and is omitted here. Figures in this document are as reported by the cited sources and must be re-verified before use in any pitch.
 
 ## How to use this handoff
 

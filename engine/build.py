@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch llama.cpp at the pinned commit, apply the Molt patch series, and build it.
+"""Fetch llama.cpp at the pinned commit, apply the MaltOE patch series, and build it.
 
     python engine/build.py --backend cpu
     python engine/build.py --backend cuda --cuda-arch 89
@@ -7,7 +7,7 @@
 
 The checkout lives in engine/.cache/llama.cpp and is owned by this script: before every build it is
 reset to the pinned commit and cleaned, so local edits there are discarded. Edit patches in
-engine/patches/ and code in engine/molt/ instead. Output goes to engine/build/<backend>/.
+engine/patches/ and code in engine/maltoe/ instead. Output goes to engine/build/<backend>/.
 
 Only the Python standard library is used, so this runs before any environment is set up.
 """
@@ -35,7 +35,7 @@ BACKEND_FLAGS: dict[str, list[str]] = {
     "vulkan": ["-DGGML_VULKAN=ON"],
 }
 
-# What Molt's scripts and baselines use. Building everything would take much longer.
+# What MaltOE's scripts and baselines use. Building everything would take much longer.
 DEFAULT_TARGETS = [
     "llama-server",
     "llama-bench",
@@ -45,7 +45,7 @@ DEFAULT_TARGETS = [
     "llama-completion",
 ]
 
-# Options that avoid needing things Molt does not use: OpenSSL (HTTPS model download) and the
+# Options that avoid needing things MaltOE does not use: OpenSSL (HTTPS model download) and the
 # prebuilt web UI that the llama.cpp server would otherwise fetch from the network at build time.
 COMMON_FLAGS = [
     "-DCMAKE_BUILD_TYPE=Release",

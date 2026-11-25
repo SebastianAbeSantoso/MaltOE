@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(molt_spike_chunked_moe CXX C)
+project(maltoe_spike_chunked_moe CXX C)
 
 # Point this at a llama.cpp checkout at the commit pinned in docs/feasibility-report.md.
 set(LLAMA_CPP_DIR "" CACHE PATH "Path to the llama.cpp source tree")

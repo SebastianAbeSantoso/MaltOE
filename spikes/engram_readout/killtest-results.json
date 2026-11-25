@@ -1,0 +1,77 @@
+{
+ "layer 1 engram": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "layer 1 engram | embed-cos -> next": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "layer 1 engram | embed-cos -> current": [
+  0.02,
+  0.0375,
+  0.045
+ ],
+ "layer 1 random rows": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "layer 1 random rows | embed-cos -> next": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "layer 1 random rows | embed-cos -> current": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "layer 14 engram": [
+  0.01,
+  0.0125,
+  0.0175
+ ],
+ "layer 14 engram | embed-cos -> next": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "layer 14 engram | embed-cos -> current": [
+  0.0125,
+  0.03,
+  0.04
+ ],
+ "layer 14 random rows": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "layer 14 random rows | embed-cos -> next": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "layer 14 random rows | embed-cos -> current": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "unigram (wikitext-2 train)": [
+  0.0475,
+  0.1725,
+  0.265
+ ],
+ "bigram (wikitext-2 train)": [
+  0.21,
+  0.4075,
+  0.47
+ ],
+ "trigram (wikitext-2 train)": [
+  0.2275,
+  0.3725,
+  0.43
+ ]
+}

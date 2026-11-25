@@ -4,7 +4,7 @@ inclusion: always
 
 # Research Integrity Rules
 
-Molt is judged partly on honesty about prior art. These rules apply to code comments, docs, the README, the dashboard text, and the demo script.
+MaltOE is judged partly on honesty about prior art. These rules apply to code comments, docs, the README, the dashboard text, and the demo script.
 
 ## Numbers
 
@@ -21,7 +21,7 @@ Molt is judged partly on honesty about prior art. These rules apply to code comm
 ## Claims
 
 - State the novelty claim exactly as in `product.md`, or as narrowed by `docs/feasibility-report.md`.
-- Always cite WiSP for working-set MoE paging and CRISP for importance-ordered widths with joint scheduling. Never imply Molt introduced either.
+- Always cite WiSP for working-set MoE paging and CRISP for importance-ordered widths with joint scheduling. Never imply MaltOE introduced either.
 - If configuration D does not beat B or C, say so plainly and do not claim the joint advantage.
 - Mark anything not verified from a primary source as *unverified*, and say how it will be checked.
 
@@ -29,3 +29,10 @@ Molt is judged partly on honesty about prior art. These rules apply to code comm
 
 - Prefer papers, official repos, and official model cards over blogs.
 - Link sources inline. Paraphrase; do not paste long passages.
+
+## The two old papers
+
+- Every statement about Liu et al. (imprecise computation) or Denning (working set, thrashing) must come from `docs/theory-sources.md`, which records what the papers actually say, with sections and equations. Do not describe either paper from memory.
+- If a needed claim is not in that file, read the source first and add it there, with where it was found.
+- Keep the file's labels when writing about MaltOE: **match** (used as the paper defines it), **adaptation** (carried to a new setting; say so), **ours** (not in the paper).
+- The 1991 Liu et al. paper has been read in full (PDF supplied by the builder, not committed). Cite it with page numbers as recorded in `docs/theory-sources.md`.

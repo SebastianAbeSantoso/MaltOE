@@ -15,6 +15,10 @@ inclusion: always
 - Commits are authored and committed as the builder: `Sebastian Abe Santoso <185665220+SebastianAbeSantoso@users.noreply.github.com>`. Set it through `GIT_AUTHOR_*` and `GIT_COMMITTER_*` environment variables for the command; do not change git config.
 - Pull requests and merges go through the GitHub API, which already acts as the builder's account.
 
+## Submission tracking
+
+- At every checkpoint, update `docs/submission/deliverables.md` (status of each deliverable) and add what happened to `docs/submission/kiro-writeup.md` (how Kiro was used, with evidence). Write only what actually happened; mark plans as planned and unverified items as "check".
+
 ## Merging
 
 - Merge a pull request only when the builder asks.

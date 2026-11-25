@@ -5,7 +5,7 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   plugins: [react()],
   server: {
-    // `npm run dev` talks to molt-core on the loopback interface.
+    // `npm run dev` talks to maltoe-core on the loopback interface.
     proxy: { '/api': 'http://127.0.0.1:8000', '/ws': { target: 'ws://127.0.0.1:8000', ws: true } },
   },
   build: { outDir: 'dist' },

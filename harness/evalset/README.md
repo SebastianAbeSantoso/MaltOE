@@ -12,7 +12,7 @@ Every configuration (A to D, and the baselines) is scored on exactly these probl
 
 ## How the problems were chosen
 
-One draw, made before any Molt result existed: `random.Random(f"{seed}{salt}").sample(range(population), 20)` with seed `20261116` (the date Task 1 started) and salt `humaneval` or `gsm8k`. Nobody looked at the problems first. `harness/datasets.py` holds the algorithm. The Task 1 smoke test used the first 5 of each list, which `tests/test_evalset.py` checks.
+One draw, made before any MaltOE result existed: `random.Random(f"{seed}{salt}").sample(range(population), 20)` with seed `20261116` (the date Task 1 started) and salt `humaneval` or `gsm8k`. Nobody looked at the problems first. `harness/datasets.py` holds the algorithm. The Task 1 smoke test used the first 5 of each list, which `tests/test_evalset.py` checks.
 
 ## Sources and licences
 

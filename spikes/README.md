@@ -111,13 +111,20 @@ This builds one Qwen3-30B-A3B MoE layer (2048 x 768, 128 experts, top-8). It che
 
 If the CUDA backend rejects a view, the program stops with an assertion message. Paste it back; that is a result too.
 
+To test the "pages" layout (each chunk of each expert stored as its own small expert, one `mul_mat_id` per projection over 8×k page ids; report 6.6e), add `--pages`:
+
+```powershell
+.\build\chunked_moe.exe --backend CUDA0 --type q4_K --n-expert 128 --n-used 8 --n-tokens 1   --iters 200 --views --pages
+.\build\chunked_moe.exe --backend CUDA0 --type q4_K --n-expert 128 --n-used 8 --n-tokens 512 --iters 20  --views --pages
+```
+
 The last command tries four chunks (192 neurons each), which only works with 32-element block types such as q8_0.
 
 Paste back: all three outputs in full.
 
 ## Step B: llama.cpp's MoE cache (Task 1.7)
 
-At the pinned commit, llama.cpp has an experimental `--moe-cache-mib` option that keeps frequently used experts of host-resident layers in VRAM. Molt would build on it, so we measure it before designing anything.
+At the pinned commit, llama.cpp has an experimental `--moe-cache-mib` option that keeps frequently used experts of host-resident layers in VRAM. MaltOE would build on it, so we measure it before designing anything.
 
 ```powershell
 cd <repo>\spikes\moe_cache_probe
@@ -129,6 +136,27 @@ This runs 7 configurations twice each: three static `-ncmoe` values, and four ca
 If a static configuration fails with out-of-memory, that is a result; the script records it and moves on.
 
 Paste back: the printed table, and `nvidia-smi` once while idle.
+
+### Step B2: does a CPU share make the cache faster?
+
+llama.cpp's tuner (`scripts/moe-cache-tune.py`) does not work on Windows: it stops the server with a Ctrl+C signal that Python cannot send there. The probe does the same measurement directly, since its runs end by themselves:
+
+```powershell
+cd E:\Github\Molt\spikes\moe_cache_probe
+.\run_moe_cache.ps1 -LlamaBin E:\llamacpp\build\bin -Model D:\models\Qwen3-30B-A3B-Q4_K_M.gguf -StaticNcmoe 40 -CacheMiB 3072 -CpuShares 0,0.5,0.95 -OutDir .\moe-cache-share
+```
+
+That is static `-ncmoe 40` (about 4.4 GB of VRAM) against a 3 GB cache at three CPU shares, at about the same VRAM, two runs each: 8 runs, roughly 5 minutes. With `-lv 4` the cache hit rates should now appear.
+
+### (Not used) llama.cpp's own cache tuner
+
+Step B found the cache slower than static offload on the laptop. llama.cpp ships a tuner that runs `llama-server` at two cache sizes and three CPU shares (`--moe-cache-cpu-share`, where the CPU computes some cache misses instead of uploading them), records the routing, and predicts the best setting. It also prints the hit rates. It needs only Python's standard library.
+
+```powershell
+python E:\llamacpp\scripts\moe-cache-tune.py --out D:\maltoe-work\moe-tune -- E:\llamacpp\build\bin\llama-server.exe -m D:\models\Qwen3-30B-A3B-Q4_K_M.gguf -cmoe -c 4096
+```
+
+`-cmoe` keeps all experts in host memory, which is what the cache is for. The tuner says it takes "a few minutes, mostly model loading"; with the model larger than RAM, expect longer. Paste everything it prints at the end (measured speeds, predicted t/s, recommended arguments). It was written for Linux and macOS as far as I can tell; if it fails on Windows, paste the error.
 
 ## Step C: can we hold memory on Windows? (Task 1.8)
 
@@ -143,12 +171,20 @@ nvcc -O2 -o ballast_probe.exe ballast_probe.cu
 .\run_g4.ps1 -LlamaBin C:\src\llama.cpp\build\bin -Model D:\models\Qwen3-30B-A3B-Q4_K_M.gguf -Label no-fallback
 ```
 
+Then the active filler, which rewrites its memory every 50 ms the way a game would (keep the setting on **Prefer No Sysmem Fallback**):
+
+```powershell
+nvcc -O2 -o ballast_probe.exe ballast_probe.cu      # rebuild: the active mode is new
+.\run_g4.ps1 -LlamaBin E:\llamacpp\build\bin -Model D:\models\Qwen3-30B-A3B-Q4_K_M.gguf -Label active -TouchMs 50
+```
+
 Each run uses ballast sizes 0, 1, 2, 3, and 4 GiB. With no ballast the benchmark should fit in 8 GB; the larger ballasts push it over. The question is whether it then fails or silently slows down.
 
 RAM filler, on **both** machines (on the 32 GB PC this is what forces the SSD tier into use):
 
 ```powershell
-uv run --with psutil python ram_probe.py 12 --seconds 20
+uv run --with psutil python ram_probe.py 3 --seconds 20     # laptop (16 GB, only about 5 GB free): hold 3 GiB
+uv run --with psutil python ram_probe.py 12 --seconds 20    # PC (32 GB): hold 12 GiB
 ```
 
 Paste back: the `ballast_probe` output, both `run_g4` tables, the driver version, and the `ram_probe` output from each machine.
@@ -159,7 +195,7 @@ This is the long one. It makes four versions of the model: full width, two third
 
 ```powershell
 cd <repo>\spikes\width_emulation
-.\run_g3.ps1 -LlamaBin C:\src\llama.cpp\build\bin -LlamaCppSrc C:\src\llama.cpp -BaseGguf D:\models\Qwen3-30B-A3B-Q4_K_M.gguf -WorkDir D:\molt-work
+.\run_g3.ps1 -LlamaBin C:\src\llama.cpp\build\bin -LlamaCppSrc C:\src\llama.cpp -BaseGguf D:\models\Qwen3-30B-A3B-Q4_K_M.gguf -WorkDir D:\maltoe-work
 ```
 
 Needs about 45 GB free on the work drive. It deletes each variant file after measuring it. To try one variant first: `-Variants k1`. If it is interrupted, re-run with `-SkipImatrix` to reuse the importance statistics.

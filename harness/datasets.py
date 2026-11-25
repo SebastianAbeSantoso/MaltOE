@@ -7,7 +7,7 @@ Run from the repository root:
     uv run python -m harness.datasets verify           # check the cache against the frozen files
     uv run python -m harness.datasets freeze           # rewrite harness/evalset/*.json (a deliberate act)
 
-The problems are drawn once, with a fixed seed, before any Molt result exists. The ids are stored
+The problems are drawn once, with a fixed seed, before any MaltOE result exists. The ids are stored
 in ``harness/evalset/``. Each id also stores a hash of the problem text, and each source file a hash
 of the whole file, so a changed upstream dataset is detected instead of silently used.
 """
