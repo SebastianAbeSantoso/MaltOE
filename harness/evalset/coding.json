@@ -1,0 +1,117 @@
+{
+  "name": "humaneval-20",
+  "source": {
+    "url": "https://github.com/openai/human-eval/raw/master/data/HumanEval.jsonl.gz",
+    "sha256": "b796127e635a67f93fb35c04f4cb03cf06f38c8072ee7cee8833d7bee06979ef",
+    "licence": "MIT",
+    "credit": "OpenAI HumanEval, https://github.com/openai/human-eval"
+  },
+  "draw": {
+    "seed": 20261116,
+    "salt": "humaneval",
+    "size": 20,
+    "population": 164
+  },
+  "problems": [
+    {
+      "index": 11,
+      "id": "HumanEval/11",
+      "sha256": "3625f004ed75bbc0b3ad6c2f4f26743226cbf61aeb50392a2e3dcdf854e4712b"
+    },
+    {
+      "index": 5,
+      "id": "HumanEval/5",
+      "sha256": "71d9667f22522f605693482c64f6cb38a2010454ce72fed4821c792900df7b2f"
+    },
+    {
+      "index": 93,
+      "id": "HumanEval/93",
+      "sha256": "5dfbfb9922a888c3b5d4f1f5949d21355cea6229527780334724fbc90279273a"
+    },
+    {
+      "index": 83,
+      "id": "HumanEval/83",
+      "sha256": "7acac8b72dbc0bc1800ff2583d3e465f21855c386b0e78becc9b28e7ffd25dad"
+    },
+    {
+      "index": 61,
+      "id": "HumanEval/61",
+      "sha256": "2c545635b8efa0f8d3582c74d49dae46fd2889195f3bdda7f5b99c8225f5232f"
+    },
+    {
+      "index": 69,
+      "id": "HumanEval/69",
+      "sha256": "bda024130c6074a90dc77fd4127934edb8c96193aaffceacf335087ca6ffd6d3"
+    },
+    {
+      "index": 43,
+      "id": "HumanEval/43",
+      "sha256": "b89db99d2eb08995a47c01f73b8bf073067dd88589c1ae11fec6456255f6925a"
+    },
+    {
+      "index": 123,
+      "id": "HumanEval/123",
+      "sha256": "31ce38be7165ab8e937087856c99db11f75a1c0a0857ec4a85db2a316a6910fd"
+    },
+    {
+      "index": 155,
+      "id": "HumanEval/155",
+      "sha256": "35a042e3294364d2815c2765d0d2e6809c8e4e69e10259c2ea6faec631bdb656"
+    },
+    {
+      "index": 80,
+      "id": "HumanEval/80",
+      "sha256": "3b3460651db4e0b659a2b1f4cee7118bbffd952ab3dda2e8b0f59b5addfb4a74"
+    },
+    {
+      "index": 79,
+      "id": "HumanEval/79",
+      "sha256": "49e757b3e70c817b681583121788042381fd203d526502dcd30fb2ef34279db9"
+    },
+    {
+      "index": 136,
+      "id": "HumanEval/136",
+      "sha256": "376cd4ccb9f8274ff1fe82529855e647860dfa02201389800bbd345b4e6bb972"
+    },
+    {
+      "index": 146,
+      "id": "HumanEval/146",
+      "sha256": "0783d27bbde9a3c65de800ab9ae25c6c8321f892a687540e07a82915cb1edeca"
+    },
+    {
+      "index": 129,
+      "id": "HumanEval/129",
+      "sha256": "815ef6ca6ff5627b6e0b61aadfa2d38f3801036287908a7f2a908decffe0ab41"
+    },
+    {
+      "index": 63,
+      "id": "HumanEval/63",
+      "sha256": "b8cd57b9c71f36a6e010f3b3b199c3accd6886020e331c1a4f53e073e44997b0"
+    },
+    {
+      "index": 37,
+      "id": "HumanEval/37",
+      "sha256": "ad9b47486e74ee4f19e43012b078f0b1470a9c2d3ffe12bfc4cc0c9dec0d615c"
+    },
+    {
+      "index": 128,
+      "id": "HumanEval/128",
+      "sha256": "a2c4ca4bb7457faff2c6d6eb6dd944e7ca5e327b1bbe373f7e27e8cedea425ab"
+    },
+    {
+      "index": 71,
+      "id": "HumanEval/71",
+      "sha256": "aaa1eb5ed03d142c9cb492b3afe928f613cae97671da8778fa7f66fe17aeacba"
+    },
+    {
+      "index": 57,
+      "id": "HumanEval/57",
+      "sha256": "4c7b65e78568fe116fb7f0bda9ae8bdf20f077b72c66b51746a1f22b51675d44"
+    },
+    {
+      "index": 158,
+      "id": "HumanEval/158",
+      "sha256": "be938e39120b73b7f618bfa59b867cd3c7984867969ef0c45b31b7cb171ef9ae"
+    }
+  ]
+}

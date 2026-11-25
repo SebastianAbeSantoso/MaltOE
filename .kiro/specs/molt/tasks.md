@@ -12,7 +12,7 @@
 
 - [ ] P1. Request the Kiroween Kiro credits before December 1, 2026, 12:00 PM PT (December 2, 04:00 WITA). _Requirements: 15.5_
 - [ ] P2. Make the GitHub repo `SebastianAbeSantoso/Molt` public, or confirm it will be public before submission. Confirm `.kiro/` is committed and not in `.gitignore`. _Requirements: 15.1_
-- [ ] P3. Re-check the official Kiroween 2026 rules on Devpost. Record any difference from the handoff dates in `docs/kiroween-rules.md`. _Requirements: 15.4, 15.6_
+- [~] P3. Re-check the official Kiroween 2026 rules on Devpost. Record any difference from the handoff dates in `docs/kiroween-rules.md`. _Requirements: 15.4, 15.6_ (partly done: dates match, but Devpost blocks automated reads, so the builder must confirm the items listed in `docs/kiroween-rules.md` in a browser)
 
 ## Tasks
 
@@ -56,11 +56,12 @@
     - Record perplexity and solved counts. **Checkpoint:** the builder judges whether `k = 1` and `k = 2` are useful. If not, record the C = 4 fallback plan; do not run it unless asked.
     - _Requirements: 1.5, 4.2, 11.3_
 
-  - [ ] 1.6 G2a Engine spike: chunked `mul_mat_id` on CUDA [HW-L] (CPU run done in the sandbox: correct for f32, f16, q8_0, q4_K; CUDA run is Step A)
+  - [x] 1.6 G2a Engine spike: chunked `mul_mat_id` on CUDA [HW-L] (CPU run done in the sandbox: correct for f32, f16, q8_0, q4_K. CUDA run done by the builder 2026-11-16: correct on the RTX 4060; timed with the fixed method: full-width chunked is 1.97x the fused expert in decode and 1.48x in prefill; see report 6.6a)
     - Write a small standalone C++ test against the pinned ggml in `spikes/chunked_moe/`. It builds an expert FFN as 3 chunks (`[n_embd, 256, n_expert]` gate/up, `[256, n_embd, n_expert]` down) in Q4_K, runs `mul_mat_id` on CUDA for k = 1..3, and compares with an f32 reference.
     - Record correctness and per-layer time per `k` against one fused `mul_mat_id` at full width.
     - _Requirements: 1.4, 1.7_
 
+  - [ ] 1.6b *(proposed, small)* Run `chunked_moe --views` on CUDA to see whether width k can be a prefix view of the fused tensor with no chunk loop (CPU: yes, no price at full width; report 6.6b).
   - [ ] 1.7 G2b Engine spike: per-MoE-layer host split for slot remapping [HW-L] (**changed from plan**: llama.cpp at the pin already has `--moe-cache-mib`, so Step B measures that instead of a hand-written split; see report section 6)
     - Extend the spike. After top-K, force a CPU op that reads the expert ids, remaps them to slot ids in a small slot pool, and copies one missing page per layer from pinned host memory. Run it for 48 layers.
     - Measure the per-token overhead of the 48 splits and syncs with no misses, and the cost per missed page, at k = 1..3.
@@ -86,20 +87,20 @@
     - **Checkpoint:** the builder approves the route before Task 2.
     - _Requirements: 1.1, 1.5, 1.7_
 
-- [ ] 2. Repository scaffolding
-  - [ ] 2.1 Create the layout from `structure.md`: `molt/`, `engine/molt/`, `engine/patches/`, `engine/LLAMA_CPP_COMMIT`, `tools/ballast/`, `convert/`, `harness/`, `web/`, `tests/`, `docs/`.
-  - [ ] 2.2 Set up the Python project with `uv`, Python 3.12, FastAPI, pydantic, pytest, hypothesis, ruff, and `pyproject.toml` with the ruff and pytest config.
-  - [ ] 2.3 Add an engine build script that fetches llama.cpp at the pinned commit, applies `engine/patches/*.patch`, adds `engine/molt/` to the build, and builds with CUDA (Windows) or CPU (CI).
-  - [ ] 2.4 Set up the web app with Vite, React, TypeScript, vitest, and eslint. FastAPI serves the build output as static files.
-  - [ ] 2.5 Add GitHub Actions CI: ruff and pytest; a CPU-only engine build and CTest; web lint and vitest.
+- [x] 2. Repository scaffolding
+  - [x] 2.1 Create the layout from `structure.md`: `molt/`, `engine/molt/`, `engine/patches/`, `engine/LLAMA_CPP_COMMIT`, `tools/ballast/`, `convert/`, `harness/`, `web/`, `tests/`, `docs/`.
+  - [x] 2.2 Set up the Python project with `uv`, Python 3.12, FastAPI, pydantic, pytest, hypothesis, ruff, and `pyproject.toml` with the ruff and pytest config.
+  - [x] 2.3 Add an engine build script that fetches llama.cpp at the pinned commit, applies `engine/patches/*.patch`, adds `engine/molt/` to the build, and builds with CUDA (Windows) or CPU (CI). (done and verified by a real CPU build of the pinned commit. The step "adds `engine/molt/` to the build" is deferred to the first patch in Task 6: there is no C++ in `engine/molt/` yet to add.)
+  - [x] 2.4 Set up the web app with Vite, React, TypeScript, vitest, and eslint. FastAPI serves the build output as static files.
+  - [x] 2.5 Add GitHub Actions CI: ruff and pytest; a CPU-only engine build and CTest; web lint and vitest.
   - _Requirements: 15.1_
 
-- [ ] 3. Fixed evaluation set and machine manifest
-  - [ ] 3.1 Freeze the eval set: 20 HumanEval ids and 20 GSM8K test ids from a seeded draw, plus 64 windows of 512 tokens from the wikitext-2 test split. Store them in `harness/evalset/` with source links and licences.
-  - [ ] 3.2 Write the scorers: sandboxed HumanEval execution with a timeout (pass@1), GSM8K final-number exact match, and the perplexity driver. Report solved counts (n/20), not only percentages.
-  - [ ] 3.3 Fix the sampling settings: greedy, fixed `max_tokens`, fixed seed, Qwen3 chat template with thinking off. Store them in `harness/evalset/sampling.json`.
-  - [ ] 3.4 Write the machine manifest collector: GPU name and power limit, CPU model and threads, power mode, total and available RAM, SSD model and interface, OS and driver versions, engine version.
-  - [ ] 3.5 Unit tests for the scorers on fixed sample outputs.
+- [x] 3. Fixed evaluation set and machine manifest
+  - [x] 3.1 Freeze the eval set: 20 HumanEval ids and 20 GSM8K test ids from a seeded draw, plus 64 windows of 512 tokens from the wikitext-2 test split. Store them in `harness/evalset/` with source links and licences.
+  - [x] 3.2 Write the scorers: sandboxed HumanEval execution with a timeout (pass@1), GSM8K final-number exact match, and the perplexity driver. Report solved counts (n/20), not only percentages.
+  - [x] 3.3 Fix the sampling settings: greedy, fixed `max_tokens`, fixed seed, Qwen3 chat template with thinking off. Store them in `harness/evalset/sampling.json`.
+  - [x] 3.4 Write the machine manifest collector: GPU name and power limit, CPU model and threads, power mode, total and available RAM, SSD model and interface, OS and driver versions, engine version.
+  - [x] 3.5 Unit tests for the scorers on fixed sample outputs.
   - _Requirements: 2.3, 2.7, 10.4, 10.7_
 
 - [ ] 4. Baselines [HW-L, then HW-PC for BL-2 and BL-3 only]
