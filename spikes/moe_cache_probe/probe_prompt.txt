@@ -1,0 +1,9 @@
+You are helping a developer who works offline on a laptop with limited GPU memory.
+
+Task 1. Write a Python function merge_intervals(intervals) that takes a list of [start, end] pairs and returns the list of merged, non-overlapping intervals sorted by start. Explain the idea in two sentences, then show the code, then give one small example with its output.
+
+Task 2. A bakery sells muffins in boxes of 6 and boxes of 4. On Monday it sold 25 boxes in total and 130 muffins. How many boxes of each size did it sell? Show the equations you use.
+
+Task 3. In three sentences, explain to a student why a program that touches more memory than fits in RAM can become extremely slow, and what operating systems do to reduce the problem.
+
+Answer the tasks in order.

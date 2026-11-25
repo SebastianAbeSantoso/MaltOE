@@ -18,9 +18,10 @@
 
 - [ ] 1. Model Feasibility Round (gates G0–G4)
   - Output: `docs/feasibility-report.md`, with one section per gate, a candidate matrix, a recommended route, and every unverified claim marked.
+  - **Status (2026-11-16):** 1.1 to 1.4 are done. For 1.5 to 1.9 the scripts are written and tested in the sandbox; the hardware runs are yours, in the order given in `spikes/README.md`. 1.10 waits for those results. The report lists proposed spec changes that need your approval at the 1.10 checkpoint.
   - _Requirements: 1.1–1.9_
 
-  - [ ] 1.1 G0 Novelty: read the full CRISP paper and the related work
+  - [x] 1.1 G0 Novelty: read the full CRISP paper and the related work
     - Read CRISP (arXiv 2610.37442) in full. Answer: does CRISP change width or loading schedule *online* when the memory budget changes during serving? Does it have a user-facing objective? Is it single-user consumer hardware or edge servers? Which models and hardware did it use?
     - Re-read WiSP (arXiv 2606.21868) on MV-WSA: what exactly does its live controller resize, and does it ever change computation?
     - Verify DyMoE (arXiv 2603.19172) and say what it adapts (precision, orchestration) and whether it is online.
@@ -28,57 +29,58 @@
     - Write the resulting novelty claim. If any work already does the narrowed claim, narrow it again and stop for the builder.
     - _Requirements: 1.6, 1.8, 12.1–12.5_
 
-  - [ ] 1.2 G1 Model: verify Qwen3-30B-A3B
+  - [x] 1.2 G1 Model: verify Qwen3-30B-A3B
     - Record the Hugging Face repo, licence, and `config.json` values (layers, hidden size, experts, top-K, expert intermediate size, shared experts, attention heads). Compare them with the table in design.md.
     - Find an existing Q8_0 GGUF, or confirm that `convert_hf_to_gguf.py` at the pinned commit supports the `qwen3moe` arch. Record file sizes for Q8_0 and Q4_K_M.
     - Check whether "Qwen3.6-35B-A3B" exists as a public checkpoint. Record the result only; do not plan around it.
     - _Requirements: 1.3, 1.9_
 
-  - [ ] 1.3 Candidate matrix: MoSE, HydraLLM, Edge0, llama.cpp MoE offload
+  - [x] 1.3 Candidate matrix: MoSE, HydraLLM, Edge0, llama.cpp MoE offload
     - For each candidate, record the repo link, licence, checkpoint availability and quality evidence, and nested-width support (existing / needs conversion / not feasible).
     - For each engine, record whether it can run variable-width experts and whether it supports dynamic expert placement across VRAM, RAM, and SSD.
     - MoSE: are trained checkpoints released, at what sizes, and under what licence? This is the G3 fallback only.
     - Edge0: confirm the Windows backends (Vulkan/CPU), the licence, and the supported model list for `edge0-infer`.
     - _Requirements: 1.2–1.4, 1.6_
 
-  - [ ] 1.4 llama.cpp: pin a commit and answer the existing-feature questions
+  - [x] 1.4 llama.cpp: pin a commit and answer the existing-feature questions (pinned `a946eb54…`; that it builds with CUDA on Windows is checked in Step 0 of `spikes/README.md`)
     - Pick a recent llama.cpp commit that builds with CUDA on Windows, and record it in the report. It becomes `engine/LLAMA_CPP_COMMIT` in Task 2.
     - Does the backend scheduler already copy only the *used* experts when host-resident MoE weights are offloaded for a GPU `MUL_MAT_ID`? Cite the code path or PR.
     - Does `llama-imatrix` record per-expert input-activation statistics for `ffn_down_exps`, in a form that gives per-neuron `mean(h²)` per expert?
     - Is `llama_memory_seq_rm` (or its equivalent at this commit) available for removing a partial KV position?
     - _Requirements: 1.4, 1.7_
 
-  - [ ] 1.5 G3 Width quality, emulated without engine changes [HW-L]
+  - [ ] 1.5 G3 Width quality, emulated without engine changes [HW-L] (scripts ready: `spikes/width_emulation/`, Step D)
     - Write `spikes/width_emulation.py` using `gguf-py`. It loads a Q8_0 GGUF, computes importance per expert neuron from the imatrix and down-projection column norms, and permutes neurons by importance. For each `k ∈ {1, 2}` it zeroes the gate and up rows of neurons beyond `k·256`, which exactly emulates width `k` because `silu(0)·x = 0`. It writes one GGUF per `k`.
     - Control: also write a `k = 1` model that keeps a *random* 256 neurons instead of the top 256. This shows whether importance ordering matters.
     - The builder runs stock `llama-perplexity` and a 5-coding + 5-reasoning smoke subset of the eval set at k = 3, 2, 1, and the random k = 1 control.
     - Record perplexity and solved counts. **Checkpoint:** the builder judges whether `k = 1` and `k = 2` are useful. If not, record the C = 4 fallback plan; do not run it unless asked.
     - _Requirements: 1.5, 4.2, 11.3_
 
-  - [ ] 1.6 G2a Engine spike: chunked `mul_mat_id` on CUDA [HW-L]
+  - [ ] 1.6 G2a Engine spike: chunked `mul_mat_id` on CUDA [HW-L] (CPU run done in the sandbox: correct for f32, f16, q8_0, q4_K; CUDA run is Step A)
     - Write a small standalone C++ test against the pinned ggml in `spikes/chunked_moe/`. It builds an expert FFN as 3 chunks (`[n_embd, 256, n_expert]` gate/up, `[256, n_embd, n_expert]` down) in Q4_K, runs `mul_mat_id` on CUDA for k = 1..3, and compares with an f32 reference.
     - Record correctness and per-layer time per `k` against one fused `mul_mat_id` at full width.
     - _Requirements: 1.4, 1.7_
 
-  - [ ] 1.7 G2b Engine spike: per-MoE-layer host split for slot remapping [HW-L]
+  - [ ] 1.7 G2b Engine spike: per-MoE-layer host split for slot remapping [HW-L] (**changed from plan**: llama.cpp at the pin already has `--moe-cache-mib`, so Step B measures that instead of a hand-written split; see report section 6)
     - Extend the spike. After top-K, force a CPU op that reads the expert ids, remaps them to slot ids in a small slot pool, and copies one missing page per layer from pinned host memory. Run it for 48 layers.
     - Measure the per-token overhead of the 48 splits and syncs with no misses, and the cost per missed page, at k = 1..3.
     - Compare with stock `--n-cpu-moe` decode tok/s on the real model at the same budget.
     - **Checkpoint:** the builder decides whether the overhead is acceptable. If not, evaluate Route B (Edge0-infer fork) in 1.9 before deciding.
     - _Requirements: 1.4, 1.7_
 
-  - [ ] 1.8 G4 Budget enforcement on Windows [HW-L]
+  - [ ] 1.8 G4 Budget enforcement on Windows [HW-L] (probes ready: `spikes/ballast_probe/`, Step C)
     - Write `spikes/ballast_probe.cu`: allocate and touch N GB of VRAM, then hold it.
     - With the probe holding 2 and 4 GB, run stock llama.cpp at full offload. Record whether it fails, falls back to shared system memory, or the probe's memory gets demoted. Use Task Manager "Dedicated/Shared GPU memory" and NVML.
     - Record the NVIDIA "CUDA – Sysmem Fallback Policy" setting and its effect. Pick the setting used for all runs.
     - Check the RAM filler approach (`VirtualAlloc` + `VirtualLock` with a raised working-set limit) on the PC [HW-PC], and record whether it reduces available RAM as seen by `psutil`.
     - _Requirements: 2.4, 2.6, 7.8_
 
-  - [ ] 1.9 Edge0 reference run, and Route B check if needed [HW-L]
+  - [ ] 1.9 Edge0 reference run, and Route B check if needed [HW-L] (steps: `spikes/edge0/README.md`, Step E)
     - Build `edge0-infer` for Windows and try to run `edge0-35b` on the laptop. Record the backend used, whether it ran, TTFT, tok/s, and the memory it reports.
     - Only if G2 failed: assess how width chunks would fit Edge0's slot design and its Recover-LoRA adapters, and estimate the effort.
     - _Requirements: 1.3, 2.1_
 
+  - [ ] 1.7b *(proposed, needs approval)* Read `src/llama-moe-cache.cpp` end to end and register one chunked layer with the cache, to settle whether chunks can be cached as extra logical layers (report section 6.5).
   - [ ] 1.10 Write the Feasibility Report and recommend a route
     - Give pass or fail per gate, with evidence. Name one route and one model. State the chosen engine (A or B) and why. Give the final novelty claim. List open risks.
     - **Checkpoint:** the builder approves the route before Task 2.

@@ -1,0 +1,197 @@
+# Feasibility Report: Molt Task 1
+
+Status as of 2026-11-16: **research gates decided; hardware gates waiting for your runs.** Gates G0 and G1 and the candidate review are complete. G2 is half answered and its main finding changes the engine plan. G3 and G4 need the laptop (instructions in [`spikes/README.md`](../spikes/README.md)).
+
+Evidence labels used below: **verified** means I read it in a primary source or ran it; **unverified** means I did not, and each such item says how it will be checked. Numbers marked *sandbox CPU* were measured on a Linux server CPU and say nothing about CUDA speed.
+
+## 1. Gate summary
+
+| Gate | Question | State | Result |
+| --- | --- | --- | --- |
+| G0 Novelty | Does existing work already adapt width and residency together, online, under a changing memory budget with a user objective? | **Decided** | Not found. Claim stands as approved. Three prior-art additions needed in the README (section 3). |
+| G1 Model | Is Qwen3-30B-A3B usable? | **Decided** | Yes. Apache-2.0, config matches design.md exactly, official GGUFs exist. |
+| G2 Engine | Can the llama.cpp fork run variable-width experts and dynamic residency? | **Half answered** | Chunked experts are correct on CPU. **Upstream llama.cpp already has an expert cache that does the VRAM paging.** CUDA timings and cache behaviour need your runs (Steps A, B). |
+| G3 Width quality | Does a width-reduced Qwen3-30B-A3B stay useful? | **Waiting for hardware** | Scripts tested; Step D. |
+| G4 Budget enforcement | Do the VRAM and RAM fillers create real pressure on Windows? | **Waiting for hardware** | Probes tested; Step C. |
+
+## 2. Findings that change the spec
+
+These need your decision at the checkpoint (section 9). I have not edited `requirements.md` or `design.md`.
+
+1. **llama.cpp already contains a working-set-style expert cache.** `--moe-cache-mib` (marked EXPERIMENTAL in `include/llama.h`) keeps frequently and recently used experts of host-resident layers in a VRAM buffer, uploads only the missing ones, and hooks into `build_moe_ffn`. This removes the biggest risk in design.md (hand-building the per-layer slot remap and host sync) but means Molt extends someone else's cache. It also means the strongest stock baseline is `--n-cpu-moe` **plus** `--moe-cache-mib`, which Req 2.1 and Req 10.8 do not yet name. Details in section 6.
+2. **The RAM and SSD tiers would be the operating system's page cache**, not a Molt-managed cache, unless we build one. Upstream host experts are memory-mapped by default.
+3. **The importance run should use the Q4_K_M file, not Q8_0.** The official Q8_0 GGUF is 32.5 GB, more than the laptop's RAM and a heavy download. The final conversion (Task 5) can use Q8_0 on the PC if it matters.
+4. **README prior art needs additions:** llama.cpp's MoE cache, ElastiLM, and a note that DyMoE was also evaluated on Qwen3-30B-A3B. Also two wording fixes (DATS link, Yao et al.). Section 3.
+
+## 3. G0: novelty
+
+### 3.1 What I read
+
+- **CRISP** ([arXiv 2610.37442](https://arxiv.org/abs/2610.37442), MobiCom '26): the full HTML text (about 80,000 characters). I searched it for every term about online behaviour, budgets, adaptation, profiling and runtime, and read the design sections on tiered execution (3.3), the pruning-aware I/O scheduler (3.4), the implementation, and the experimental setup and memory-budget experiments. I did not read every paragraph line by line.
+- **WiSP** ([arXiv 2606.21868](https://arxiv.org/abs/2606.21868), v2): abstract plus keyword reading of the full text for controller behaviour, quantization, and engine.
+- **DyMoE** ([arXiv 2603.19172](https://arxiv.org/abs/2603.19172)): full text, keyword reading.
+- **DATS**: the full PDF text (13 pages) was downloaded; I read the abstract and structure, not the proofs.
+- **Yao et al.**, **MC-MoE**, **D2MoE**, **MoSE**, **HydraLLM**, **ElastiLM**: abstracts only.
+
+### 3.2 Closest work
+
+| Work | What it does | What it does not do (as read) | Evidence |
+| --- | --- | --- | --- |
+| CRISP | Importance-ordered neurons so one expert supports several widths; offline calibration sorts expert *combinations* into Hot / Warm / Cold tiers with different widths; a width-aware scheduler overlaps expert loading with compute. Mixtral-8x7B and DeepSeek-MoE-16B on a Jetson AGX Orin (32 GB unified) and an RTX 4090 with 64 GB host RAM. | No mechanism found that changes widths or tiers *while serving* in response to a changing memory budget. The expert-memory budget (10% to 40%) is an experiment parameter set per run. When the workload or model changes, the text says the profiling artifacts are refreshed *offline* and "the same online execution mechanism" is kept. No user-selected objective. Not tested at 8 GB. Code stated as "will be made publicly available" (not yet found). | verified, partial coverage |
+| WiSP | Working-set expert pager for vLLM, byte-identical outputs; MV-WSA splits VRAM between resident experts and the KV cache, as a startup configurator or a live controller that resizes both pools at a drained barrier. Code: [nokia-applied-research/WiSP](https://github.com/nokia-applied-research/WiSP). | Never changes computation (by design). The reported live-controller result is "over a fixed offline split at the same VRAM budget", so the total budget is held fixed. Whether it reacts to an *external* VRAM change: I found no evidence either way (unverified). Runs on vLLM, which needs WSL2 on Windows. | verified |
+| DyMoE | Runtime per-expert mixed precision (8-bit, 4-bit, and "0-bit" meaning skip), driven by token and gate importance, depth-adaptive scheduling, look-ahead prefetching, mixed-precision VRAM cache. **Also evaluated on Qwen3-30B-A3B**, on an RTX 3090 with a software cap of 12 to 24 GB. | Precision and expert skipping, not width. Driven by importance, not by a changing budget. | verified, keyword reading |
+| ElastiLM ([arXiv 2409.09071](https://arxiv.org/abs/2409.09071)) | Dense LLMs on mobile: one-time neuron reordering gives elastic sub-models, switched per request to meet latency SLOs. | Dense models, no MoE, no expert residency. | abstract level only |
+| Edge0 | SSD expert streaming with a trained routing predictor, fixed expert slots per layer. | No width control. | verified from README |
+| DATS | Splits each LLM request into prefill, a validator-backed mandatory prefix, and an optional suffix, with deadline admission. Authors Haque and Saifullah, UT Dallas, accepted at RTSS 2026 per the author's page. | Tokens, not experts. Physical-I/O agents, not local chat. | verified from the PDF |
+| Yao et al. ([arXiv 2011.01112](https://arxiv.org/abs/2011.01112)) | Real-time scheduling of deep learning services as imprecise computations: mandatory part plus optional parts, "depth assignment and stage scheduling", on machine vision. | Not LLMs, not MoE. | abstract and section headings |
+| llama.cpp MoE cache | Engine-level VRAM cache of host-resident experts, frequency-and-recency policy, fixed size chosen at context creation. | No width, no runtime resize, no controller. | verified in source |
+
+### 3.3 Verdict
+
+I did not find work that changes expert width and expert residency together, during a live session, when the VRAM budget changes, steered by a user objective. **The narrowed claim in `product.md` and the README stands unchanged.** Residual risks: the CRISP source is unreleased, I did not read every CRISP paragraph, and I could not check WiSP's behaviour under an external VRAM change.
+
+### 3.4 Required README changes
+
+1. DATS: link the primary source (done in the same PR as this report).
+2. Yao et al.: the README said "applied to layers and early exits". The abstract says mandatory and optional parts with depth assignment and stage scheduling; the words "early exit" do not appear in the paper. Reworded (same PR).
+3. Add llama.cpp's MoE cache to prior art, since Molt builds on it (same PR).
+4. Add ElastiLM (same PR). DyMoE row gains the Qwen3-30B-A3B note (same PR).
+
+### 3.5 Handoff figures re-verified
+
+| Figure in handoff | Source | Result |
+| --- | --- | --- |
+| CRISP: up to 2.1x throughput at the same memory budget, accuracy loss limited to 3.6% | [abstract](https://arxiv.org/abs/2610.37442) | **verified** (Mixtral-8x7B and DeepSeek-MoE-16B) |
+| D2MoE: up to 53% lower peak memory | [abstract](https://arxiv.org/abs/2504.15299) | **verified**; also 1.39x throughput |
+| MC-MoE: 76.6% compression at 2.54 bits, 3.8% accuracy loss; 15% fewer activated parameters with under 0.6% drop | [abstract](https://arxiv.org/abs/2410.06270) | **verified** (ICLR 2025) |
+| WiSP: up to 2.0x decode throughput vs static offload on a 24 GiB RTX 3090; byte-identical; code public | [abstract](https://arxiv.org/abs/2606.21868) | **verified**. First posted 2026-06-20; v2 is 2026-08-30. The handoff said August 2026. |
+| Edge0 "released November 4, 2026" | [README](https://github.com/Edge0-AI/edge0) | **partly**: the unified engine `edge0-infer` was released 2026-11-04. The framework and models date from 2026-09-08 and the paper from 2026-09-16. |
+| Krasis, FloE, OD-MoE, DynamicInfer, AMD GPT-OSS 20B dynamic loading, DeepSeek V4.1 Flash and DeepInfer-Mac figures, CPU-ARC | none read | **unverified**, not used anywhere in the README. V4.1 figures are re-verified in Task 15.2 if that stretch is attempted. |
+
+## 4. G1: model
+
+Source: [Qwen/Qwen3-30B-A3B](https://huggingface.co/Qwen/Qwen3-30B-A3B), `config.json` fetched 2026-11-16.
+
+| Field | design.md table | Actual | Match |
+| --- | --- | --- | --- |
+| Layers | 48, all MoE | 48 (`decoder_sparse_step` 1, `mlp_only_layers` empty) | yes |
+| Hidden size | 2048 | 2048 | yes |
+| Routed experts | 128 | `num_experts` 128 | yes |
+| Top-K | 8 | `num_experts_per_tok` 8 | yes |
+| Expert intermediate size | 768 | `moe_intermediate_size` 768 | yes |
+| Shared experts | none | none in the config | yes |
+| Attention | 32 query heads, 4 KV heads, head dim 128 | 32, 4, 128 | yes |
+
+- **Licence:** Apache-2.0 (model card metadata). Not gated.
+- **GGUF:** the official [Qwen/Qwen3-30B-A3B-GGUF](https://huggingface.co/Qwen/Qwen3-30B-A3B-GGUF) has Q4_K_M (18.56 GB), Q5_0, Q5_K_M, Q6_K and Q8_0 (32.48 GB). llama.cpp at the pin has the `qwen3moe` architecture.
+- **Quality evidence:** none collected by me. Gate G3 measures it.
+- **Other checkpoints:** a public repo named `Qwen/Qwen3.6-35B-A3B` exists. I recorded that and did not evaluate it (per your instruction, we do not plan around it). Edge0's 35B model is built on it.
+
+## 5. Candidate review (Req 1.2 to 1.4)
+
+| Candidate | Repo / licence | Checkpoints | Nested widths | Variable-width execution | Dynamic residency across VRAM, RAM, SSD | Verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| MoSE | [tnurbek/mose](https://github.com/tnurbek/mose); no licence file; README says "The code is coming soon." | none found (HF search found none) | trained from scratch, GPT-style, plus one DeepSeek model adapted by continued pretraining | no released code | no | **Not feasible now.** Fallback only if code and checkpoints appear. |
+| HydraLLM | paper only, [arXiv 2610.23455](https://arxiv.org/abs/2610.23455); no code repository found by search (unverified) | none found | yes, but width is the number of attention heads in a dense MQA model | no | no | **Not feasible** for an MoE chat model. |
+| Edge0 | [Edge0-AI/Edge0](https://github.com/Edge0-AI/edge0), Apache-2.0; checkpoint [Edge0-35B-A3B-preview](https://huggingface.co/Edge0/Edge0-35B-A3B-preview) Apache-2.0, ungated | released, 4-bit with LoRA adapters and routing predictor | no | no | yes: fixed expert slots per layer, SSD streaming, `--memory-budget`; GGML engine with CPU and Vulkan on Windows; CUDA only through the separate `edge0-strata` engine for 145B and 120B models | **Fallback engine (Route B) and baseline BL-3.** It only runs its own checkpoint, so adding width would also touch the adapters (my inference, not verified). |
+| llama.cpp | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp), MIT | official Qwen GGUFs | no (we add it) | no (we add it; section 6) | VRAM to host: yes, `--moe-cache-mib` (experimental). Host to SSD: the OS page cache via mmap. | **Route A, default engine.** |
+| llama.cpp `--n-cpu-moe` | same | same | no | no | static: experts of the first N layers stay on the CPU | **Baseline BL-2**, together with the cache (BL-2b, proposed). |
+| CRISP | [arXiv](https://arxiv.org/abs/2610.37442); code not released | none | yes (design reference) | research code only | host to GPU | **Design reference, not a base.** |
+
+## 6. G2: engine
+
+### 6.1 Pinned commit
+
+`a946eb541a6d3051496bdcc451a0fa85772b8dfd`, committed 2026-11-16 ("server: answer reasoning_effort levels the template rejects with 400 (#32332)"). Licence MIT. GitHub lists `v1.0.0` as the latest release (published 2026-11-13). **Unverified:** that this commit builds with CUDA on Windows; Step 0 of the spikes tests that.
+
+### 6.2 Facts verified in the source at the pin
+
+| Question | Answer | Where |
+| --- | --- | --- |
+| Does `llama-imatrix` record per-expert, per-neuron statistics for `ffn_down_exps`? | **Yes.** For each `MUL_MAT_ID` it accumulates `x[j]^2` (and `x[j]`) per expert id and per input column, with a count per expert. For `ffn_down_exps` the input is the intermediate activation, so this is exactly mean(h^2) per neuron per expert. Saved as `<tensor>.in_sum2` shaped [n_expert, 768] and `<tensor>.counts`. | `tools/imatrix/imatrix.cpp` lines 596 to 660 |
+| Is there an API to drop a partial KV position? | Yes, `llama_memory_seq_rm`. | `include/llama.h` line 770 |
+| Is `qwen3moe` supported? | Yes. | `src/models/qwen3moe.cpp` |
+| Static MoE offload? | `-cmoe`, `-ncmoe`, and tensor overrides (`-ot`). | `common/arg.cpp` line 2731 |
+| Does a MoE cache exist? | **Yes.** `--moe-cache-mib N`, `--moe-cache-cpu-share F`. See 6.3. | `src/llama-moe-cache.{h,cpp}`, `docs/moe-cache.md` |
+| Where does the expert FFN get built? | One lambda, `build_experts` in `build_moe_ffn`: gate, up, activation, down. This is where a chunk loop would go. | `src/llama-graph.cpp` lines 2445 to 2610 |
+| Does the scheduler copy only the used experts when it offloads a `MUL_MAT_ID`? | Yes, through `sched_copy_experts`, a copy callback installed on the scheduler. | `src/llama-context.cpp` lines 782, 3159 |
+
+### 6.3 The upstream MoE cache
+
+What it does: for layers whose experts are host-resident, it keeps a device buffer of expert "slots". Each layer has a slot map in host memory; when the scheduler copies the map to the device, a callback uploads the missing experts. Policy: one LRU list per frequency class, with a combined recency-and-frequency score decayed with a 128-token half-life. Optionally the CPU computes a share of the misses instead of uploading them.
+
+What it lacks for Molt:
+
+| Molt needs | Upstream |
+| --- | --- |
+| Change the cache size while running | No. Size is a context parameter (`cparams.moe_cache_size`) fixed at context creation. |
+| Hit and miss counters for the dashboard | Printed once to the log at teardown (`log_stats`). No API. |
+| Width-aware pages | No. A page is a whole expert. |
+| A "working set no longer fits" signal | No. |
+| Policy | Recency plus frequency, not a strict window over recent tokens. |
+| Active development | Several related pull requests are open (for example #32076 "run everything without syncs", #30594 "hybrid MoE expert cache with profile prefilling and zero-upload inference"). The code will keep moving, so the pin matters. |
+
+### 6.4 Chunked experts (Task 1.6, partly done): *sandbox CPU* results
+
+[`spikes/chunked_moe`](../spikes/chunked_moe/chunked_moe.cpp) builds one Qwen3-30B-A3B MoE layer (2048 x 768, top-8) with ggml's own `mul_mat_id` and compares:
+
+- **Correct:** with three chunks, the summed output equals the fused expert to a relative RMS error of about 1e-7 for f32, f16, q8_0, and q4_K. Width k equals a plain f32 reference that uses only the first k chunks (f32 about 2e-7; quantized types about 1.2e-2 to 1.9e-2, which is the activation-quantization noise the full-width kernel has against the same reference). Width 1 and width 3 differ by about 81% relative RMS, so the test can tell widths apart. The build is clean under AddressSanitizer.
+- **Cost:** on a server CPU with 32 experts (not 128) and q4_K weights, a decode call took about 0.40x, 0.81x, and 1.21x of the fused time at k = 1, 2, 3. Time scales with width. The 1.1x to 1.2x overhead at full width on CPU comes from extra operations; **CUDA may differ, which is what Step A measures.**
+- **Block-size rule:** four chunks (192 neurons) works with q8_0 and is rejected for q4_K because 192 is not a multiple of 256. This confirms the note in design.md.
+
+### 6.5 Smallest engine change for Route A (Req 1.7)
+
+llama.cpp has dynamic residency (VRAM to host) but not variable-width execution, so the change is to add width on top and extend the cache:
+
+1. **Package loader:** read `molt.*` metadata and the chunk tensors for `qwen3moe`.
+2. **Graph:** loop the `build_experts` lambda over chunks `j < k` and sum the down-projection outputs.
+3. **Cache registration:** register each chunk's tensors with the MoE cache so chunks are cached and evicted independently. A narrower width then never uploads the wider chunks. *Largest uncertainty:* the cache is keyed by layer and by tensor layout, and I have not yet read it deeply enough to say whether chunk triples can be registered as extra logical layers without restructuring it.
+4. **Runtime resize and counters:** add what upstream lacks (6.3).
+5. **Control endpoint** and Safe Boundary application.
+
+I am not giving an hours estimate; the real cost is item 3, and a short spike (read `llama-moe-cache.cpp` end to end, then register one chunked layer) would settle it. That is a proposed addition to Task 1, section 9.
+
+### 6.6 Waiting for hardware
+
+| Measurement | Step | Result |
+| --- | --- | --- |
+| Chunked experts on CUDA: correctness and ms per layer, k = 1..3 vs fused (decode and prefill) | A | *pending* |
+| Upstream cache: decode tok/s, hit rate, bytes uploaded, disk read, for static `-ncmoe` vs cache sizes | B | *pending* |
+
+## 7. G3: width quality (pending)
+
+Method ([`spikes/width_emulation`](../spikes/width_emulation/make_variant.py)): width k keeps the k x 256 most important neurons of each expert and zeroes the gate and up rows of the rest. A zero gate row gives silu(0) = 0, so the neuron contributes nothing, which is exactly what running a narrower expert computes. No reordering of stored tensors is needed to measure quality, and the file stays valid for stock llama.cpp. Importance is sqrt(mean(h^2)) x the L2 norm of the neuron's down-projection column, using llama-imatrix statistics from a calibration text of wikitext-2 **train** and llama.cpp source code. The evaluation uses wikitext-2 **test**, HumanEval, and GSM8K, so calibration and evaluation do not overlap. Controls: random neurons at k = 1.
+
+Deviations from tasks.md 1.5: (a) the base is Q4_K_M, not Q8_0 (finding 3); (b) no physical permutation is written, because emulation by zeroing is equivalent; (c) the smoke subset is the first 5 of a seeded 20-problem draw per set, and the same 20 will be Task 3's frozen set.
+
+| Variant | wikitext-2 perplexity | Coding (n/5) | Reasoning (n/5) | Importance mass kept |
+| --- | --- | --- | --- | --- |
+| k = 3 (full) | *pending* | | | |
+| k = 2 | *pending* | | | |
+| k = 1 | *pending* | | | |
+| k = 1, random neurons | *pending* | | | |
+
+Five problems per set means each difference of one problem is 20 percentage points. The perplexity column is the more reliable signal; the problem counts only show gross failure.
+
+## 8. G4 and Edge0 (pending)
+
+| Measurement | Step | Result |
+| --- | --- | --- |
+| Ballast holds VRAM; behaviour when a run exceeds free VRAM (fail, or spill to shared memory), with sysmem fallback on and off | C | *pending* |
+| RAM filler lowers available RAM on laptop and PC | C | *pending* |
+| Edge0 builds and runs on the RTX 4060 laptop; backend; tok/s at several `expert_slots` | E | *pending* |
+
+## 9. Recommendation and checkpoint
+
+**Provisional route (valid unless G3 or G4 fail): Route A.** Convert Qwen3-30B-A3B without training (importance-ordered chunks), on a llama.cpp fork at the pinned commit, with `C = 3`.
+
+Proposed changes for your approval (none applied yet):
+
+1. **Baselines:** add `llama.cpp --n-cpu-moe + --moe-cache-mib` (BL-2b) to Req 2.1 and Req 10.8, because it is the strongest stock setup.
+2. **Pager design:** replace "write an expert pager" with "extend llama.cpp's MoE cache" (chunk-aware pages, runtime resize, counters, working-set signal). Tasks 7.1 to 7.8 change accordingly.
+3. **RAM and SSD tiers for v1:** use the operating system's page cache through mmap, and measure bytes read with OS counters. Build Molt's own unbuffered reader only if Step B and Step C show the page cache cannot be controlled well enough. Req 6.1 (three tiers) still holds.
+4. **Add a task 1.7b:** a short spike that reads `llama-moe-cache.cpp` end to end and registers one chunked layer, to settle the main uncertainty in 6.5.
+5. **Importance run on Q4_K_M** (finding 3).
+6. **Fallbacks:** if G3 fails at k = 1, try `C = 4` (q8_0-type chunks only) before anything else; MoSE only if code and checkpoints appear; Route B (Edge0) only if G2 on CUDA fails.
+
+Open items: the CRISP source code (not released), WiSP's behaviour under an external VRAM change (unverified), and whether the pinned commit builds on Windows with CUDA.
